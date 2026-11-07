@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <script>/* ערכת צבעים שנבחרה - לפני הציור, כדי שלא יהבהב */ try { const t = localStorage.getItem("3dnews-admin-theme"); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
 <title>לוח ניהול משימות</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -37,7 +38,7 @@
   body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Heebo,"Segoe UI",Arial,sans-serif}
   header{background:var(--card);border-bottom:1px solid var(--line)}
   .top{max-width:1320px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
-  .logo{width:36px;height:36px;border-radius:9px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:700}
+  .logo{height:36px;padding:0 10px;border-radius:9px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:14px;letter-spacing:.3px;white-space:nowrap;direction:ltr}
   .top h1{font-size:18px;margin:0;font-weight:700}
   .top .date{color:var(--sub);font-size:13px}
   .top .spacer{flex:1}
@@ -167,7 +168,7 @@
 <body>
 
 <header><div class="top">
-  <div class="logo">3P</div>
+  <div class="logo" title="3D Printing Support Team">3DP-ST</div>
   <div><h1>צוות תמיכה מדפסות תלת-ממד - לוח ניהול משימות</h1><div class="date" id="today"></div></div>
   <div class="spacer"></div>
   <div class="version" id="version"></div>
@@ -265,7 +266,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "4.3";
+const VERSION = "4.4";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
