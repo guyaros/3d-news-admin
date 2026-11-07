@@ -216,7 +216,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "2.1";
+const VERSION = "2.2";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -344,7 +344,7 @@ function cardBlocks(sel) {
     d.message.forEach(l => B.push({ text: l || " " }));
   }
   if (d.unavailable.length) {
-    B.push({ text: "🤒 לא זמינים היום", weight: "Bolder", sep: true });
+    B.push({ text: "סטטוס זמינות אנשי צוות", weight: "Bolder", sep: true });
     d.unavailable.forEach(p => B.push({ text: `• ${p.name}${p.reason ? ": " + p.reason : ""}`, small: true }));
   }
   const taskBlocks = (i, t, prefix = "") => {
