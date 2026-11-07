@@ -56,7 +56,14 @@
   .bucket-head label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);cursor:pointer}
   /* rows */
   .row{display:grid;gap:8px;align-items:center;margin-bottom:6px;padding:4px;border-radius:9px}
-  .row.task{grid-template-columns:18px 22px minmax(0,.55fr) minmax(0,1fr) minmax(0,.6fr) 136px 128px 92px 136px 30px}
+  .row.task{grid-template-columns:18px 22px minmax(0,.55fr) minmax(0,1fr) minmax(0,.6fr) 190px 128px 92px 136px 30px}
+  .due-cell{display:flex;align-items:center;gap:6px;min-width:0}
+  .due-cell input[type=date]{flex:1;min-width:0}
+  .due-cell label{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--sub);cursor:pointer;white-space:nowrap}
+  .due-cell input[type=checkbox]{width:15px;height:15px}
+  .due-cell .tbd{display:none;flex:1;padding:7px 9px;border:1px dashed var(--accent);border-radius:8px;color:var(--accent);font-size:13px;white-space:nowrap}
+  .due-cell.is-future input[type=date]{display:none}
+  .due-cell.is-future .tbd{display:block}
   .drag{cursor:grab;color:var(--sub);user-select:none;text-align:center;font-size:16px;line-height:1}
   .drag:active{cursor:grabbing}
   .sortable-ghost{opacity:.35;background:var(--accent-soft)}
@@ -206,7 +213,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "1.9";
+const VERSION = "2.0";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -217,6 +224,7 @@ const ALIASES = { "גבוה": "גבוהה", "רגיל": "רגילה" };
 const BUCKET_ICONS = { "שירות באתר הלקוח": "🚗", "התקנות והדרכות": "🛠️", "תיקונים במעבדה": "🔬",
   "טיפולי תחזוקה מונעת PM": "🔧", "משימות כללי": "📌" };
 const icon = b => BUCKET_ICONS[b] || "📂";
+const FUTURE = "עתידי";  // ערך תאריך: עתידי, ללא מועד מוגדר (זהה ל-tasks.py)
 const todayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });  // YYYY-MM-DD בשעון ישראל
 const HEADER = `# ---------------------------------------------------------------
 # המשימות שפורסמו. נוצר אוטומטית מממשק הניהול - הלוח המלא נמצא ב-board.json.
@@ -224,7 +232,7 @@ const HEADER = `# --------------------------------------------------------------
 #
 # הודעה:     (אופציונלי) שורות טקסט חופשי, כל אחת מתחילה ב- >
 # לא זמינים: שורה לכל אדם, בפורמט   שם: סיבה
-# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח | תאריך (YYYY-MM-DD) | סטטוס
+# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח | תאריך (YYYY-MM-DD או "עתידי") | סטטוס
 # סדר המשימות בקובץ הוא הסדר בכרטיס.
 # ---------------------------------------------------------------
 `;
@@ -281,7 +289,7 @@ function parseTasksTxt(text) {
       const p = line.split("|").map(s => s.trim()); while (p.length < 7) p.push("");
       const priority = ALIASES[p[0]] || p[0];
       if (PRIORITIES[priority] && p[1]) tasks.push({ priority, title: p[1], owner: p[2], note: p[3], customer: p[4],
-        due: /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", status: p[6] in STATUSES ? p[6] : "", bucket, publish: false });
+        due: p[5] === FUTURE || /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", status: p[6] in STATUSES ? p[6] : "", bucket, publish: false });
     }
   });
   while (message.length && !message[message.length - 1]) message.pop();
@@ -312,10 +320,11 @@ function cardBlocks(sel) {
   const d = parseTasksTxt(toTasksTxt(sel));  // בונים מהקובץ עצמו, כדי שהתצוגה תהיה זהה למה שיישלח
   const away = new Set(d.unavailable.map(p => p.name)), today = todayISO();
   // משימה עם תאריך אחרי היום עוברת לחלק "משימות עתידיות"
-  const isFuture = t => t.due && t.due > today;
-  const future = d.tasks.filter(isFuture).sort((x, y) => x.due < y.due ? -1 : x.due > y.due ? 1 : 0);
+  const isFuture = t => t.due === FUTURE || (!!t.due && t.due > today);
+  const fkey = t => t.due === FUTURE ? "9999" : t.due;  // "עתידי" בלי מועד - בסוף
+  const future = d.tasks.filter(isFuture).sort((x, y) => fkey(x) < fkey(y) ? -1 : fkey(x) > fkey(y) ? 1 : 0);
   const current = d.tasks.filter(t => !isFuture(t));
-  const summary = current.length ? [`${current.length} משימות`] : [];
+  const summary = current.length ? [current.length === 1 ? "1 משימה" : `${current.length} משימות`] : [];
   if (future.length) summary.push(future.length === 1 ? "1 עתידית" : `${future.length} עתידיות`);
   const urgent = d.tasks.filter(t => t.priority === "דחוף").length;
   const noOwner = d.tasks.filter(t => !t.owner).length;
@@ -341,7 +350,8 @@ function cardBlocks(sel) {
     else if (away.has(t.owner)) { who = `${t.owner} · ⚠️ לא זמין/ה היום, צריך מחליף`; c = "Warning"; }
     else { who = t.owner; c = ""; }
     let due = "";
-    if (t.due) {
+    if (t.due === FUTURE) due = "📅 ללא מועד";
+    else if (t.due) {
       const dm = `${t.due.slice(8, 10)}.${t.due.slice(5, 7)}`;
       due = t.due < today ? `📅 ${dm} (באיחור)` : t.due === today ? "📅 היום" : `📅 ${dm}`;
       if (t.due < today && !c) c = "Attention";
@@ -419,7 +429,11 @@ function addTask(k, t = {}, focus = true) {
     <input class="f-customer" data-k="customer" value="${esc(t.customer)}" placeholder="שם לקוח">
     <input class="f-title" data-k="title" value="${esc(t.title)}" placeholder="מה צריך לעשות">
     <input class="f-note" data-k="note" value="${esc(t.note)}" placeholder="שעה, פרטים…">
-    <input class="f-due" type="date" data-k="due" value="${esc(t.due)}" title="תאריך לביצוע">
+    <div class="due-cell ${t.due === FUTURE ? "is-future" : ""}">
+      <input class="f-due" type="date" data-k="due" value="${t.due === FUTURE ? "" : esc(t.due)}" title="תאריך לביצוע">
+      <span class="tbd">ללא מועד</span>
+      <label title="משימה עתידית שעוד לא נקבע לה מועד"><input type="checkbox" data-k="dueFuture" ${t.due === FUTURE ? "checked" : ""}>עתידי</label>
+    </div>
     <select class="f-status s-${st}" data-k="status">${Object.keys(STATUSES).map(s =>
       `<option ${s === st ? "selected" : ""}>${s}</option>`).join("")}</select>
     <select data-k="priority" class="p-${pri}">${Object.keys(PRIORITIES).map(p =>
@@ -442,7 +456,12 @@ function collect() {
   const fields = r => Object.fromEntries([...r.querySelectorAll("[data-k]")].map(e => [e.dataset.k, val(e)]));
   const tasks = [];
   document.querySelectorAll(".bucket").forEach(b =>
-    b.querySelectorAll(".rows > .row").forEach(r => { const t = fields(r); if (t.title) tasks.push({ bucket: b.dataset.bucket, ...t }); }));
+    b.querySelectorAll(".rows > .row").forEach(r => {
+      const t = fields(r);
+      if (t.dueFuture) t.due = FUTURE;
+      delete t.dueFuture;
+      if (t.title) tasks.push({ bucket: b.dataset.bucket, ...t });
+    }));
   const unavailable = [...$("unavail").children].map(fields).filter(p => p.name);
   return { buckets, unavailable, tasks, message: $("msgText").value, messagePublish: $("msgPub").checked };
 }
@@ -458,6 +477,11 @@ document.addEventListener("input", e => {
   }
   if (e.target.dataset.k === "priority") e.target.className = "p-" + e.target.value;
   if (e.target.dataset.k === "status") e.target.className = "f-status s-" + e.target.value;
+  if (e.target.dataset.k === "dueFuture") {
+    const cell = e.target.closest(".due-cell");
+    cell.classList.toggle("is-future", e.target.checked);
+    if (e.target.checked) cell.querySelector(".f-due").value = "";
+  }
   changed();
 });
 window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
