@@ -229,7 +229,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "2.6";
+const VERSION = "2.7";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -304,7 +304,7 @@ function parseTasksTxt(text) {
     else if (section === "t") {
       const p = line.split("|").map(s => s.trim()); while (p.length < 9) p.push("");
       const priority = ALIASES[p[0]] || p[0];
-      if (PRIORITIES[priority] && p[1]) tasks.push({ priority, title: p[1], owner: p[2], note: p[3], customer: p[4],
+      if (PRIORITIES[priority] && (p[1] || p[4])) tasks.push({ priority, title: p[1], owner: p[2], note: p[3], customer: p[4],
         due: p[5] === FUTURE || /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", status: p[6] in STATUSES ? p[6] : "", equip: p[7], serial: p[8], bucket, publish: false });
     }
   });
@@ -377,7 +377,7 @@ function cardBlocks(sel) {
       if (t.due < today && !c) c = "Attention";
     }
     const st = t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : "";
-    B.push({ text: `${i}. ${prefix}${PRIORITIES[t.priority][1]}${t.customer ? t.customer + " – " : ""}${t.title}`, weight: "Bolder", small: true });
+    B.push({ text: `${i}. ${prefix}${PRIORITIES[t.priority][1]}${[t.customer, t.title].filter(Boolean).join(" – ")}`, weight: "Bolder", small: true });
     const eq = t.equip ? `🖨️ ${t.equip}${t.serial ? ` (S/N ${t.serial})` : ""}` : t.serial ? `🖨️ S/N ${t.serial}` : "";
     B.push({ text: [`👤 ${who}`, st, due, eq, t.note].filter(Boolean).join(" · "), color: c });
   };
@@ -489,7 +489,8 @@ function collect() {
       const t = fields(r);
       if (t.dueFuture) t.due = FUTURE;
       delete t.dueFuture;
-      if (t.title) tasks.push({ bucket: b.dataset.bucket, ...t });
+      // משימה נשמרת אם מולא בה שדה טקסט כלשהו (לא רק "משימה")
+      if (t.title || t.customer || t.note || t.equip || t.serial) tasks.push({ bucket: b.dataset.bucket, ...t });
     }));
   const unavailable = [...$("unavail").children].map(fields).filter(p => p.name);
   return { buckets, unavailable, tasks, message: $("msgText").value, messagePublish: $("msgPub").checked };
