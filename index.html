@@ -245,7 +245,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "3.7";
+const VERSION = "3.8";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -379,7 +379,7 @@ function cardBlocks(sel) {
   if (away.size) summary.push(`${away.size} לא זמינים היום`);
   const date = new Date().toLocaleDateString("he-IL", { timeZone: TZ, weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
   const B = [
-    { text: "משימות להיום", size: "Large", weight: "Bolder" },
+    { text: "תכנון משימות שבועי", size: "Large", weight: "Bolder" },
     { text: [date, ...summary].join(" · "), subtle: true },
   ];
   const heading = text => B.push({ text, weight: "Bolder", color: "Accent", sep: true, cls: "h" });
