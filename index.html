@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>משימות 3DP Support</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3f4f8; --card:#fff; --line:#e3e5ec; --text:#1c1d22; --sub:#6b6f7b;
+    --accent:#5b5fc7; --accent-soft:#eef0ff; --red:#c4314b; --red-soft:#fdecef;
+    --orange:#b86e00; --orange-soft:#fff4e0; --green:#1f7a4a; --green-soft:#e4f5eb;
+    --shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#16171c; --card:#1f2027; --line:#30323c; --text:#ecedf1; --sub:#9a9eab;
+      --accent:#8b8ff0; --accent-soft:#2a2c47; --red:#ff7b8f; --red-soft:#3a2026;
+      --orange:#ffb44d; --orange-soft:#3a2d18; --green:#5fd394; --green-soft:#1b3326;
+      --shadow:none;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Heebo,"Segoe UI",Arial,sans-serif}
+  header{background:var(--card);border-bottom:1px solid var(--line)}
+  .top{max-width:1240px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}
+  .logo{width:36px;height:36px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
+  .top h1{font-size:18px;margin:0;font-weight:700}
+  .top .date{color:var(--sub);font-size:13px}
+  .top .spacer{flex:1}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 16px 60px;display:grid;
+        grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+  @media(max-width:920px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:var(--shadow)}
+  .panel h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .count{background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:0 9px;font-size:12px;font-weight:700}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;
+        background:var(--card);color:var(--text)}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);padding:7px 14px}
+  button:hover{border-color:var(--accent)}
+  .ghost{border:none;background:none;color:var(--sub);padding:6px 8px}
+  .ghost:hover{color:var(--red)}
+  .add{margin-top:10px;color:var(--accent);border-style:dashed;width:100%}
+  .primary{background:var(--accent);color:#fff;border:none;padding:11px 26px;font-weight:700;font-size:16px}
+  .primary:hover{filter:brightness(1.08)}
+  .primary:disabled{opacity:.55;cursor:default}
+  /* rows */
+  .row{display:grid;gap:8px;align-items:center;margin-bottom:8px}
+  .row.task{grid-template-columns:100px minmax(0,1fr) 150px minmax(0,.6fr) 34px}
+  .row.person{grid-template-columns:170px minmax(0,1fr) 34px}
+  .row.head{font-size:12px;color:var(--sub);font-weight:500;margin-bottom:4px}
+  @media(max-width:640px){
+    .row.task{grid-template-columns:1fr 1fr 34px;padding:10px;border:1px solid var(--line);border-radius:10px}
+    .row.task .f-title{grid-column:1/-1;order:-1}
+    .row.task .f-note{grid-column:1/3}
+    .row.head.task-head{display:none}
+  }
+  select.p-דחוף{color:var(--red);font-weight:700}
+  select.p-גבוהה{color:var(--orange);font-weight:700}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .msg{margin-top:12px;padding:10px 12px;border-radius:8px;white-space:pre-line;display:none;font-size:14px}
+  .msg.err{display:block;background:var(--red-soft);color:var(--red)}
+  .msg.ok{display:block;background:var(--green-soft);color:var(--green)}
+  .msg.info{display:block;background:var(--accent-soft);color:var(--accent)}
+  .msg a{color:inherit}
+  /* preview (Teams-like card) */
+  .preview{position:sticky;top:16px}
+  .tcard{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--card)}
+  .tb{margin:0} .tb.Bolder{font-weight:700} .tb.Large{font-size:20px}
+  .tb.subtle{color:var(--sub);font-size:13px}
+  .tb.sep{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}
+  .tb.sp-Small{margin-top:4px}
+  .Attention{color:var(--red)} .Warning{color:var(--orange)} .Good{color:var(--green)}
+  .empty{color:var(--sub);font-size:14px}
+  details summary{cursor:pointer;color:var(--sub);font-size:14px}
+  /* login */
+  #login{max-width:560px;margin:50px auto;padding:0 16px}
+  #login ol{padding-inline-start:20px;color:var(--text)} #login li{margin-bottom:6px}
+  #login code{background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:5px;font-size:13px}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header><div class="top">
+  <div class="logo">3P</div>
+  <div><h1>משימות להיום</h1><div class="date" id="today"></div></div>
+  <div class="spacer"></div>
+  <button class="ghost hidden" id="logoutBtn" onclick="logout()" title="מחיקת מפתח הגישה מהדפדפן">התנתק</button>
+</div></header>
+
+<!-- מסך כניסה -->
+<div id="login" class="hidden">
+  <div class="panel">
+    <h2>🔒 כניסה</h2>
+    <p style="margin-top:0">הדביקו את מפתח הגישה של GitHub. המפתח נשמר רק בדפדפן הזה.</p>
+    <input type="password" id="tokenInput" placeholder="github_pat_…" autocomplete="off">
+    <div class="bar" style="margin-top:12px"><button class="primary" onclick="login()">כניסה</button></div>
+    <div class="msg" id="loginMsg"></div>
+    <details style="margin-top:16px"><summary>איך יוצרים מפתח גישה?</summary>
+      <ol>
+        <li>נכנסים ל-<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub ← Fine-grained token חדש</a></li>
+        <li><b>Token name:</b> <code>3d-news-admin</code> · <b>Expiration:</b> לבחירתכם</li>
+        <li><b>Repository access:</b> Only select repositories ← <code>guyaros/3d-news</code></li>
+        <li><b>Permissions ← Repository permissions:</b> <code>Contents</code> = Read and write, <code>Actions</code> = Read-only</li>
+        <li>Generate token, מעתיקים ומדביקים כאן.</li>
+      </ol>
+    </details>
+  </div>
+</div>
+
+<!-- ממשק -->
+<div class="wrap hidden" id="app">
+  <div>
+    <div class="panel">
+      <h2>🤒 לא זמינים היום <span class="count" id="cntU">0</span></h2>
+      <div class="row person head"><div>שם</div><div>סיבה</div><div></div></div>
+      <div id="unavail"></div>
+      <button class="add" onclick="addPerson()">+ הוסף</button>
+    </div>
+
+    <div class="panel">
+      <h2>📋 משימות <span class="count" id="cntT">0</span></h2>
+      <div class="row task head task-head"><div>עדיפות</div><div>משימה</div><div>אחראי</div><div>הערה</div><div></div></div>
+      <div id="tasks"></div>
+      <button class="add" onclick="addTask()">+ הוסף משימה</button>
+    </div>
+
+    <div class="panel">
+      <div class="bar">
+        <button class="primary" id="pubBtn" onclick="publish()">שלח ופרסם</button>
+        <button onclick="load()">טען מחדש</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="panel">
+      <details id="teamBox"><summary>👥 ניהול צוות</summary>
+        <p class="empty">שם אחד בכל שורה. אלה השמות שמופיעים ברשימות הבחירה.</p>
+        <textarea id="teamText" rows="6"></textarea>
+        <div class="bar" style="margin-top:10px"><button onclick="saveTeam()">שמור צוות</button></div>
+        <div class="msg" id="teamMsg"></div>
+      </details>
+    </div>
+  </div>
+
+  <div class="preview">
+    <div class="panel">
+      <h2>תצוגה מקדימה</h2>
+      <div class="tcard" id="preview"><span class="empty">טוען…</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- הגדרות ----------
+const REPO = "guyaros/3d-news";
+const API = `https://api.github.com/repos/${REPO}`;
+const WORKFLOW = "tasks.yml";
+const TOKEN_KEY = "3dnews-admin-token";
+const TZ = "Asia/Jerusalem";
+
+// חייב להתאים ל-tasks.py
+const PRIORITIES = { "דחוף":["🔴 דחוף","Attention"], "גבוהה":["🟠 גבוהה","Warning"], "רגילה":["⚪ רגילה","Default"] };
+const ALIASES = { "גבוה":"גבוהה", "רגיל":"רגילה" };
+const HEADER = `# ---------------------------------------------------------------
+# משימות להיום. שמירת הקובץ (Commit) שולחת את הכרטיס ל-Teams.
+#
+# לא זמינים: שורה לכל אדם, בפורמט   שם: סיבה
+# משימות:    שורה לכל משימה, בפורמט  עדיפות | משימה | אחראי | הערה
+#   עדיפות: דחוף / גבוהה / רגילה
+#   אחראי ריק = ללא אחראי. הערה אופציונלית.
+#   אין צורך ליישר עמודות. שורות שמתחילות ב-# לא נשלחות.
+#   (הקובץ מתעדכן מממשק הניהול ב-GitHub Pages)
+# ---------------------------------------------------------------
+`;
+
+// ---------- כלים ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const clean = s => String(s ?? "").replace(/\|/g, "/").replace(/\s+/g, " ").trim();
+const b64decode = b => new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\n/g, "")), c => c.charCodeAt(0)));
+const b64encode = s => { let bin = ""; new TextEncoder().encode(s).forEach(b => bin += String.fromCharCode(b)); return btoa(bin); };
+function storage(op, v) { try { return op === "get" ? localStorage.getItem(TOKEN_KEY)
+  : op === "set" ? localStorage.setItem(TOKEN_KEY, v) : localStorage.removeItem(TOKEN_KEY); } catch { return null; } }
+function show(id, kind, html) { const m = $(id); m.className = "msg " + kind; m.innerHTML = html; }
+function hide(id) { $(id).className = "msg"; }
+
+let token = null, team = [], sha = {}, timer;
+
+async function gh(path, opts = {}) {
+  const r = await fetch(API + path, { ...opts, headers: { "Authorization": `Bearer ${token}`,
+    "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {}) } });
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    const err = new Error(body.message || `HTTP ${r.status}`); err.status = r.status; throw err;
+  }
+  return r.status === 204 ? null : r.json();
+}
+async function readFile(name) {
+  try { const f = await gh(`/contents/${name}?ref=main&t=${Date.now()}`); sha[name] = f.sha; return b64decode(f.content); }
+  catch (e) { if (e.status === 404) { sha[name] = undefined; return ""; } throw e; }
+}
+async function writeFile(name, text, message) {
+  const body = { message, content: b64encode(text), branch: "main" };
+  if (sha[name]) body.sha = sha[name];
+  const r = await gh(`/contents/${name}`, { method: "PUT", body: JSON.stringify(body) });
+  sha[name] = r.content.sha; return r.commit;
+}
+
+// ---------- פורמט tasks.txt (זהה ל-tasks.py) ----------
+function parse(text) {
+  const unavailable = [], tasks = [], errors = []; let section = null;
+  text.split(/\r?\n/).forEach((raw, i) => {
+    const n = i + 1, line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    const head = line.replace(/:$/, "").trim();
+    if (head === "לא זמינים") { section = "u"; return; }
+    if (head === "משימות") { section = "t"; return; }
+    if (section === "u") {
+      const k = line.indexOf(":"); const name = (k < 0 ? line : line.slice(0, k)).trim();
+      const reason = k < 0 ? "" : line.slice(k + 1).trim();
+      name ? unavailable.push({ name, reason }) : errors.push(`שורה ${n}: חסר שם`);
+    } else if (section === "t") {
+      const p = line.split("|").map(s => s.trim()); while (p.length < 4) p.push("");
+      let [priority, title, owner, note] = p; priority = ALIASES[priority] || priority;
+      if (!PRIORITIES[priority]) errors.push(`שורה ${n}: עדיפות לא מוכרת '${priority}'`);
+      else if (!title) errors.push(`שורה ${n}: חסר שם משימה`);
+      else tasks.push({ priority, title, owner, note });
+    } else errors.push(`שורה ${n}: לא שייכת לאף חלק`);
+  });
+  return { unavailable, tasks, errors };
+}
+function toText(d) {
+  const now = new Date().toLocaleString("he-IL", { timeZone: TZ });
+  const L = [HEADER, `# עודכן: ${now}`, "", "לא זמינים:"];
+  d.unavailable.forEach(p => { const name = clean(p.name).replace(/:/g, " "); if (name) L.push(p.reason ? `${name}: ${clean(p.reason)}` : name); });
+  L.push("", "משימות:");
+  d.tasks.forEach(t => { if (clean(t.title)) L.push([t.priority, t.title, t.owner, t.note].map(clean).join(" | ")); });
+  return L.join("\n") + "\n";
+}
+
+// ---------- תצוגה מקדימה (זהה ל-build_card ב-tasks.py) ----------
+function cardBlocks(d) {
+  const away = new Set(d.unavailable.map(p => p.name));
+  const noOwner = d.tasks.filter(t => !t.owner).length;
+  const summary = [`${d.tasks.length} משימות`];
+  if (noOwner) summary.push(`${noOwner} ללא אחראי`);
+  if (d.unavailable.length) summary.push(`${d.unavailable.length} לא זמינים`);
+  const date = new Date().toLocaleDateString("he-IL", { timeZone: TZ, weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
+  const B = [
+    { text: "📋 משימות להיום", size: "Large", weight: "Bolder" },
+    { text: `${date} · ${summary.join(" · ")}`, subtle: true },
+  ];
+  if (d.unavailable.length) {
+    B.push({ text: "🤒 לא זמינים היום", weight: "Bolder", sep: true });
+    d.unavailable.forEach(p => B.push({ text: `• ${p.name}${p.reason ? ": " + p.reason : ""}`, small: true }));
+  }
+  let i = 0;
+  for (const [pri, [heading, color]] of Object.entries(PRIORITIES)) {
+    const group = d.tasks.filter(t => t.priority === pri); if (!group.length) continue;
+    B.push({ text: heading, weight: "Bolder", color, sep: true });
+    group.forEach(t => {
+      i++;
+      let who, c;
+      if (!t.owner) { who = "❗ ללא אחראי"; c = "Attention"; }
+      else if (away.has(t.owner)) { who = `${t.owner} · ⚠️ לא זמין/ה היום, צריך מחליף`; c = "Warning"; }
+      else { who = t.owner; c = ""; }
+      B.push({ text: `${i}. ${t.title}`, weight: "Bolder", small: true });
+      B.push({ text: `👤 ${who}${t.note ? " · " + t.note : ""}`, color: c });
+    });
+  }
+  return B;
+}
+function renderPreview() {
+  const d = collect();
+  $("cntU").textContent = d.unavailable.length; $("cntT").textContent = d.tasks.length;
+  if (!d.tasks.length) { $("preview").innerHTML = `<span class="empty">הוסיפו לפחות משימה אחת.</span>`; return; }
+  $("preview").innerHTML = cardBlocks(d).map(b => `<p class="tb ${b.weight||""} ${b.size||""} ${b.color||""}
+    ${b.subtle?"subtle":""} ${b.sep?"sep":""} ${b.small?"sp-Small":""}">${esc(b.text)}</p>`).join("");
+}
+
+// ---------- עריכה ----------
+function peopleSelect(key, value, emptyLabel) {
+  const names = [...team]; if (value && !names.includes(value)) names.push(value);
+  return `<select data-k="${key}"><option value="">${emptyLabel}</option>${names.map(n =>
+    `<option value="${esc(n)}" ${n === value ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
+}
+function addPerson(p = {}, focus = true) {
+  const el = document.createElement("div"); el.className = "row person";
+  el.innerHTML = `${peopleSelect("name", p.name, "בחר…")}
+    <input data-k="reason" value="${esc(p.reason)}" placeholder="מחלה / חופשה / מילואים">
+    <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
+  $("unavail").append(el); if (focus && !p.name) el.querySelector("select").focus(); changed();
+}
+function addTask(t = {}, focus = true) {
+  const pri = t.priority || "רגילה";
+  const el = document.createElement("div"); el.className = "row task";
+  el.innerHTML = `<select data-k="priority" class="p-${pri}">${Object.keys(PRIORITIES).map(p =>
+      `<option ${p === pri ? "selected" : ""}>${p}</option>`).join("")}</select>
+    <input class="f-title" data-k="title" value="${esc(t.title)}" placeholder="מה צריך לעשות">
+    ${peopleSelect("owner", t.owner, "— ללא אחראי —")}
+    <input class="f-note" data-k="note" value="${esc(t.note)}" placeholder="שעה, לקוח…">
+    <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
+  $("tasks").append(el); if (focus && !t.title) el.querySelector("[data-k=title]").focus(); changed();
+}
+function collect() {
+  const rows = id => [...$(id).children].map(r =>
+    Object.fromEntries([...r.querySelectorAll("[data-k]")].map(e => [e.dataset.k, e.value.trim()])));
+  return { unavailable: rows("unavail").filter(p => p.name), tasks: rows("tasks").filter(t => t.title) };
+}
+function changed() { clearTimeout(timer); timer = setTimeout(renderPreview, 150); hide("msg"); }
+document.addEventListener("input", e => {
+  if (e.target.dataset.k === "priority") e.target.className = "p-" + e.target.value;
+  if (e.target.closest("#app") && e.target.id !== "teamText") changed();
+});
+
+// ---------- טעינה ושמירה ----------
+async function load() {
+  show("msg", "info", "טוען מ-GitHub…");
+  try {
+    const [tasksText, teamText] = await Promise.all([readFile("tasks.txt"), readFile("team.txt")]);
+    team = teamText.split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith("#"));
+    $("teamText").value = team.join("\n");
+    const d = parse(tasksText);
+    $("unavail").innerHTML = ""; $("tasks").innerHTML = "";
+    d.unavailable.forEach(p => addPerson(p, false));
+    d.tasks.forEach(t => addTask(t, false));
+    if (!d.tasks.length) addTask({}, false);
+    hide("msg"); renderPreview();
+  } catch (e) {
+    if (e.status === 401) return logout("מפתח הגישה לא תקין או שפג תוקפו. צרו מפתח חדש.");
+    show("msg", "err", "שגיאה בטעינה: " + esc(e.message));
+  }
+}
+
+async function publish() {
+  const d = collect();
+  if (!d.tasks.length) return show("msg", "err", "אין משימות לשליחה.");
+  if (!confirm(`לשלוח ${d.tasks.length} משימות לערוץ ב-Teams?`)) return;
+  const btn = $("pubBtn"); btn.disabled = true; btn.textContent = "שומר…";
+  try {
+    const date = new Date().toLocaleDateString("he-IL", { timeZone: TZ });
+    const commit = await writeFile("tasks.txt", toText(d), `Tasks for ${date}`);
+    show("msg", "info", "✓ נשמר. ממתין לשליחה לערוץ…");
+    btn.textContent = "שולח…";
+    await watchRun(commit.sha);
+  } catch (e) {
+    if (e.status === 409) show("msg", "err", "הקובץ עודכן במקום אחר בינתיים. לחצו 'טען מחדש' ונסו שוב.");
+    else if (e.status === 401) logout("מפתח הגישה לא תקין או שפג תוקפו.");
+    else show("msg", "err", "לא נשמר: " + esc(e.message));
+  }
+  btn.disabled = false; btn.textContent = "שלח ופרסם";
+}
+
+// מעקב אחרי הרצת GitHub Actions (דורש הרשאת Actions: Read-only)
+async function watchRun(commitSha) {
+  const link = `https://github.com/${REPO}/actions/workflows/${WORKFLOW}`;
+  for (let i = 0; i < 40; i++) {
+    await new Promise(r => setTimeout(r, 4000));
+    let runs;
+    try { runs = await gh(`/actions/workflows/${WORKFLOW}/runs?head_sha=${commitSha}&per_page=1`); }
+    catch (e) { return show("msg", "ok", `✓ נשמר. הכרטיס יגיע לערוץ תוך כדקה.\n<a href="${link}" target="_blank">מעקב ב-GitHub</a>`); }
+    const run = runs.workflow_runs[0];
+    if (run && run.status === "completed") {
+      return run.conclusion === "success"
+        ? show("msg", "ok", "✓ נשלח לערוץ ב-Teams.")
+        : show("msg", "err", `השליחה נכשלה. <a href="${run.html_url}" target="_blank">פרטים ב-GitHub</a>`);
+    }
+  }
+  show("msg", "info", `נשמר, אבל השליחה עדיין לא הסתיימה. <a href="${link}" target="_blank">מעקב ב-GitHub</a>`);
+}
+
+async function saveTeam() {
+  const names = [...new Set($("teamText").value.split(/\r?\n/).map(s => s.trim()).filter(Boolean))];
+  try {
+    await writeFile("team.txt", names.join("\n") + "\n", "Update team list");
+    team = names; const d = collect();
+    $("unavail").innerHTML = ""; $("tasks").innerHTML = "";
+    d.unavailable.forEach(p => addPerson(p, false)); d.tasks.forEach(t => addTask(t, false));
+    if (!d.tasks.length) addTask({}, false);
+    show("teamMsg", "ok", "✓ הצוות נשמר.");
+  } catch (e) { show("teamMsg", "err", "לא נשמר: " + esc(e.message)); }
+}
+
+// ---------- כניסה ----------
+async function login() {
+  const t = $("tokenInput").value.trim(); if (!t) return;
+  token = t;
+  try { await gh(""); storage("set", t); $("tokenInput").value = ""; start(); }
+  catch (e) { token = null; show("loginMsg", "err", e.status === 404 || e.status === 401
+    ? "המפתח לא נותן גישה ל-guyaros/3d-news. בדקו את ההגדרות לפי ההוראות למטה." : "שגיאה: " + esc(e.message)); }
+}
+function logout(reason) {
+  storage("del"); token = null;
+  $("app").classList.add("hidden"); $("logoutBtn").classList.add("hidden"); $("login").classList.remove("hidden");
+  reason ? show("loginMsg", "err", esc(reason)) : hide("loginMsg");
+}
+function start() {
+  $("login").classList.add("hidden"); $("app").classList.remove("hidden"); $("logoutBtn").classList.remove("hidden");
+  load();
+}
+
+$("today").textContent = new Date().toLocaleDateString("he-IL", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" });
+$("tokenInput").addEventListener("keydown", e => e.key === "Enter" && login());
+token = storage("get");
+token ? start() : logout();
+</script>
+</body>
+</html>
