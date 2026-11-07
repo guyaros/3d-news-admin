@@ -233,10 +233,11 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "3.2";
+const VERSION = "3.3";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
+const PRI_ICON = { "דחוף": "🔴", "גבוהה": "🔴", "רגילה": "🟡", "בהמתנה": "⚪" };  // רמזור ברשימת העדיפות
 const PRIORITIES = { "דחוף": [0, "🔴 "], "גבוהה": [1, "🟠 "], "רגילה": [2, ""], "בהמתנה": [3, "⏸️ "] };
 // סטטוס -> אייקון בכרטיס ("לא התחיל" לא מוצג בכרטיס)
 const STATUSES = { "לא התחיל": "", "בביצוע": "🔄", "ממתין ללקוח": "⏳", "ממתין לחלקים": "📦", "הושלם": "✅" };
@@ -384,12 +385,14 @@ function cardBlocks(sel) {
       line(`• ${p.name}${p.reason ? ": " + p.reason : ""}${when ? ` (${when})` : ""}`);
     });
   }
-  const PRI_LABEL = { "דחוף": " (דחוף)", "גבוהה": " (עדיפות גבוהה)", "בהמתנה": " (בהמתנה)" };
+  // שורת עדיפות עם "רמזור"
+  const PRI_LINE = { "דחוף": "🔴 דחוף", "גבוהה": "🔴 עדיפות גבוהה", "רגילה": "🟡 עדיפות רגילה", "בהמתנה": "⚪ בהמתנה" };
   const PRI_COLOR = { "דחוף": "Attention", "גבוהה": "Warning" };
   const taskBlocks = (i, t, first) => {
     const name = [t.customer, t.title].filter(Boolean).join(" – ");
-    B.push({ text: `${i}. ${name}${PRI_LABEL[t.priority] || ""}`, weight: "Bolder", color: PRI_COLOR[t.priority] || "",
+    B.push({ text: `${i}. ${name}`, weight: "Bolder", color: PRI_COLOR[t.priority] || "",
              subtle: t.priority === "בהמתנה", cls: first ? "t1" : "t" });
+    line(PRI_LINE[t.priority], PRI_COLOR[t.priority] || "");
     // שורה לכל פרט; פרט ריק לא מוצג
     if (!t.owner) line("👤 לא הוגדר", "Attention");
     else if (away.has(t.owner) && !isFuture(t)) line(`👤 ${t.owner} (לא זמין/ה היום, צריך מחליף)`, "Warning");  // רק למשימות של היום
@@ -489,7 +492,7 @@ function addTask(k, t = {}, focus = true) {
       <select class="f-status s-${st}" data-k="status" title="סטטוס">${Object.keys(STATUSES).map(s =>
         `<option ${s === st ? "selected" : ""}>${s}</option>`).join("")}</select>
       <select data-k="priority" class="p-${pri}" title="עדיפות">${Object.keys(PRIORITIES).map(p =>
-        `<option ${p === pri ? "selected" : ""}>${p}</option>`).join("")}</select>
+        `<option value="${p}" ${p === pri ? "selected" : ""}>${PRI_ICON[p]} ${p}</option>`).join("")}</select>
       ${peopleSelect("owner", t.owner, "— ללא אחראי —").replace("<select", '<select class="f-owner" title="אחראי"')}
     </div>
     <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
