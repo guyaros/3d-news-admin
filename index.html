@@ -58,9 +58,10 @@
   /* bucket מקופל: לוחצים על הכותרת */
   .bucket-head h2{cursor:pointer;user-select:none}
   .bucket-head h2::before{content:"▾";color:var(--sub);font-size:13px;width:12px;display:inline-block}
-  .bucket.collapsed .bucket-head h2::before{content:"◂"}
+  .collapsed .bucket-head h2::before{content:"◂"}
   .bucket.collapsed .rows,.bucket.collapsed .add{display:none}
-  .bucket.collapsed .bucket-head{margin-bottom:0}
+  .collapsed .bucket-head{margin-bottom:0}
+  .foldable.collapsed .fold-body{display:none}
   .bucket-head h2{margin:0;flex:1}
   .bucket-head label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);cursor:pointer}
   /* rows */
@@ -177,12 +178,16 @@
 <!-- ממשק -->
 <div class="wrap hidden" id="app">
   <div>
-    <div class="panel">
-      <h2>🤒 סטטוס זמינות אנשי צוות <span class="count" id="cntU">0</span></h2>
-      <p class="empty" style="margin:-6px 0 10px">אתר לקוח, מחלה, חופשה</p>
-      <div class="row person head"><div>שם</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
-      <div id="unavail"></div>
-      <button class="add" onclick="addPerson()">+ הוסף</button>
+    <div class="panel foldable" id="availPanel" data-fold="__availability__">
+      <div class="bucket-head">
+        <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">🤒 סטטוס זמינות אנשי צוות <span class="count" id="cntU">0</span></h2>
+      </div>
+      <div class="fold-body">
+        <p class="empty" style="margin:-4px 0 8px">אתר לקוח, מחלה, חופשה</p>
+        <div class="row person head"><div>שם</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
+        <div id="unavail"></div>
+        <button class="add" onclick="addPerson()">+ הוסף</button>
+      </div>
     </div>
 
     <div class="panel" id="msgPanel">
@@ -240,7 +245,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "3.4";
+const VERSION = "3.5";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -463,10 +468,10 @@ const FOLD_KEY = "3dnews-admin-folded";
 function foldState() { try { return JSON.parse(localStorage.getItem(FOLD_KEY)) || {}; } catch { return {}; } }
 function isCollapsed(b, tasks) { const st = foldState(); return b in st ? st[b] : !tasks.some(t => t.bucket === b); }
 function toggleBucket(h) {
-  const el = h.closest(".bucket"), st = foldState();
-  st[el.dataset.bucket] = el.classList.toggle("collapsed");
+  const el = h.closest(".bucket, .foldable"), key = el.dataset.bucket || el.dataset.fold, st = foldState();
+  st[key] = el.classList.toggle("collapsed");
   try { localStorage.setItem(FOLD_KEY, JSON.stringify(st)); } catch {}
-  if (!st[el.dataset.bucket]) el.querySelectorAll("textarea.grow").forEach(autosize);
+  if (!st[key]) el.querySelectorAll("textarea.grow").forEach(autosize);
 }
 function renderBuckets(tasks) {
   const list = [...buckets, ...[...new Set(tasks.map(t => t.bucket))].filter(b => !buckets.includes(b))];
@@ -584,6 +589,7 @@ window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); 
 
 // ---------- טעינה ושמירה ----------
 function render(board) {
+  $("availPanel").classList.toggle("collapsed", !!foldState().__availability__);  // פתוח כברירת מחדל
   buckets = board.buckets?.length ? board.buckets : [...DEFAULT_BUCKETS];
   $("bucketText").value = buckets.join("\n");
   $("msgText").value = board.message || "";
