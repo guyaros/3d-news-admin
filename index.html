@@ -259,7 +259,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "3.9";
+const VERSION = "4.0";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -310,10 +310,21 @@ async function readFile(name) {
   try { const f = await gh(`/contents/${name}?ref=main&t=${Date.now()}`); sha[name] = f.sha; return b64decode(f.content); }
   catch (e) { if (e.status === 404) { sha[name] = undefined; return ""; } throw e; }
 }
-async function writeFile(name, text, message) {
-  const body = { message, content: b64encode(text), branch: "main" };
-  if (sha[name]) body.sha = sha[name];
-  const r = await gh(`/contents/${name}`, { method: "PUT", body: JSON.stringify(body) });
+// overwrite=true: קובץ שנוצר מחדש בכל פעם (tasks.txt) - דורסים את הגרסה הנוכחית בלי לבדוק התנגשות
+async function writeFile(name, text, message, overwrite = false) {
+  // GitHub דורש את מזהה הגרסה (sha) כדי לעדכן קובץ קיים; אם עוד לא קראנו את הקובץ - מביאים אותו
+  if (!(name in sha) || overwrite) await readFile(name);
+  const put = () => {
+    const body = { message, content: b64encode(text), branch: "main" };
+    if (sha[name]) body.sha = sha[name];
+    return gh(`/contents/${name}`, { method: "PUT", body: JSON.stringify(body) });
+  };
+  let r;
+  try { r = await put(); }
+  catch (e) {
+    if (!overwrite || ![409, 422].includes(e.status)) throw e;
+    await readFile(name); r = await put();  // הקובץ השתנה בינתיים - מביאים sha עדכני ומנסים שוב
+  }
   sha[name] = r.content.sha; return r.commit;
 }
 
@@ -655,7 +666,7 @@ async function publish() {
   try {
     await saveBoard("Update tasks board");
     const date = new Date().toLocaleDateString("he-IL", { timeZone: TZ });
-    const commit = await writeFile("tasks.txt", toTasksTxt(d), `Publish tasks for ${date}`);
+    const commit = await writeFile("tasks.txt", toTasksTxt(d), `Publish tasks for ${date}`, true);
     setDirty(false);
     status("info", "✓ נשמר. ממתין לשליחה לערוץ…");
     await watchRun(commit.sha);
