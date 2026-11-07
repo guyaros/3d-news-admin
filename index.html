@@ -50,6 +50,9 @@
   .primary{background:var(--accent);color:#fff;border:none;padding:10px 24px;font-weight:700;font-size:16px}
   .primary:hover{filter:brightness(1.08)}
   .primary:disabled,button:disabled{opacity:.55;cursor:default}
+  /* כפתור שמירה: כתום כשיש שינויים, ירוק ומושבת כשהכל שמור */
+  #saveBtn.need{background:var(--orange);color:#fff;border-color:var(--orange);font-weight:700}
+  #saveBtn.saved{background:var(--green-soft);color:var(--green);border-color:var(--green-soft);opacity:1}
   /* bucket */
   .bucket-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
   .bucket-head h2{margin:0;flex:1}
@@ -213,7 +216,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "2.0";
+const VERSION = "2.1";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -468,6 +471,14 @@ function collect() {
 function setDirty(v) {
   dirty = v;
   if (v) status("info", `<span class="dirty-dot"></span>יש שינויים שלא נשמרו`);
+  updateSaveBtn();
+}
+function updateSaveBtn() {
+  const b = $("saveBtn");
+  b.classList.toggle("need", dirty); b.classList.toggle("saved", !dirty);
+  b.textContent = dirty ? "שמור לוח" : "✓ הלוח שמור";
+  b.title = dirty ? "יש שינויים שלא נשמרו" : "אין שינויים לשמירה";
+  if (!$("pubBtn").disabled) b.disabled = !dirty;
 }
 function changed() { clearTimeout(timer); timer = setTimeout(renderPreview, 120); setDirty(true); }
 document.addEventListener("input", e => {
@@ -519,7 +530,7 @@ function reload() { if (!dirty || confirm("יש שינויים שלא נשמרו
 async function saveBoard(message) {
   await writeFile("board.json", JSON.stringify(collect(), null, 2) + "\n", message);
 }
-function busy(on) { ["saveBtn", "pubBtn"].forEach(id => $(id).disabled = on); }
+function busy(on) { ["saveBtn", "pubBtn"].forEach(id => $(id).disabled = on); if (!on) updateSaveBtn(); }
 function apiError(e, what) {
   if (e.status === 409) status("err", "הלוח עודכן במקום אחר בינתיים. לחצו 'טען מחדש' (השינויים שלכם יאבדו) ונסו שוב.");
   else if (e.status === 401) logout("מפתח הגישה לא תקין או שפג תוקפו.");
