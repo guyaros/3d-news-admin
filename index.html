@@ -151,6 +151,40 @@
   .tb.sep{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}
   .tb.sp-Small{margin-top:4px}
   .tb.h{font-size:16px;margin-top:22px}
+  .mention{color:var(--accent);font-weight:700}
+  /* ---------- סרגל חיפוש וסינון + לשוניות ---------- */
+  .toolbar{padding:10px 12px}
+  .view-tabs{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .view-tabs .tab{border-radius:20px;padding:5px 14px;font-size:14px}
+  .view-tabs .tab.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+  .view-tabs .spacer{flex:1}
+  .filters{display:grid;grid-template-columns:minmax(0,1.7fr) repeat(3,minmax(0,1fr)) auto auto;gap:6px;align-items:center}
+  .filters input,.filters select{font-size:13px;padding:5px 8px}
+  @media(max-width:680px){.filters{grid-template-columns:1fr 1fr}.filters #fSearch{grid-column:1/-1}}
+  .chip{background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:3px 10px;font-size:13px;white-space:nowrap;cursor:pointer}
+  .fhide{display:none!important}
+  .filtering .bucket.collapsed .rows{display:block}
+  .filtering .bucket.fempty{display:none}
+  /* ---------- לוח שנה חודשי ---------- */
+  .cal-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+  .cal-head h2{margin:0;flex:1;justify-content:center}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+  .cal-dow{font-size:12px;color:var(--sub);text-align:center;padding:2px 0}
+  .cal-day{min-height:66px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;cursor:pointer;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+  .cal-day:hover{border-color:var(--accent)}
+  .cal-day.out{opacity:.4}
+  .cal-day.today{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .cal-day.sel{background:var(--accent-soft)}
+  .cal-day .n{font-weight:700;font-size:13px}
+  .cal-day .cnt{background:var(--accent);color:var(--on-accent);border-radius:10px;font-size:11px;padding:0 7px;white-space:nowrap}
+  .cal-day .cnt.late{background:var(--red)}
+  .cal-day .away{font-size:11px;color:var(--orange);white-space:nowrap}
+  @media(max-width:680px){.cal-day{min-height:48px;padding:3px}.cal-day .cnt{padding:0 4px}.cal-day .away{display:none}}
+  .cal-list{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+  .cal-list h3{font-size:15px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+  .cal-item{padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+  .cal-item .meta{color:var(--sub);font-size:12px}
+
   .tb.t1{margin-top:10px} .tb.t{margin-top:16px}
   .Attention{color:var(--red)} .Warning{color:var(--orange)} .Good{color:var(--green)} .Accent{color:var(--accent)}
   details summary{cursor:pointer;color:var(--sub);font-size:14px}
@@ -222,6 +256,32 @@
       </div>
     </div>
 
+    <div class="panel toolbar" id="toolbar">
+      <div class="view-tabs">
+        <button type="button" class="tab on" data-view="board" onclick="setView('board')">📋 לוח משימות</button>
+        <button type="button" class="tab" data-view="cal" onclick="setView('cal')">📅 לוח שנה</button>
+        <span class="spacer"></span>
+        <span class="empty" id="fCount"></span>
+      </div>
+      <div class="filters">
+        <input id="fSearch" type="search" placeholder="🔍 חיפוש: לקוח, משימה, הערות, ציוד, S/N, קריאה…">
+        <select id="fOwner" title="סינון לפי איש צוות"></select>
+        <select id="fStatus" title="סינון לפי סטטוס"></select>
+        <select id="fDate" title="סינון לפי תאריך לביצוע">
+          <option value="">כל התאריכים</option>
+          <option value="overdue">באיחור</option>
+          <option value="today">היום</option>
+          <option value="week">7 הימים הקרובים</option>
+          <option value="future">עתידי (ללא מועד)</option>
+          <option value="none">ללא תאריך</option>
+        </select>
+        <span id="fDay" class="chip hidden" onclick="clearDay()" title="הסרת סינון היום"></span>
+        <button type="button" class="ghost hidden" id="fClear" onclick="clearFilters()">נקה סינון</button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="calView"></div>
+
     <div id="buckets"></div>
 
     <div class="panel">
@@ -229,7 +289,7 @@
         <div class="manage">
           <div>
             <b>👥 צוות</b>
-            <p class="empty" style="margin:4px 0 8px">שם אחד בכל שורה.</p>
+            <p class="empty" style="margin:4px 0 8px">שורה לכל אדם: <b>שם | אימייל</b>. עם אימייל, האחראי יתויג ב-Teams.</p>
             <textarea id="teamText" rows="6"></textarea>
           </div>
           <div>
@@ -269,7 +329,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "4.6";
+const VERSION = "5.0";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -338,6 +398,20 @@ async function writeFile(name, text, message, overwrite = false) {
   }
   sha[name] = r.content.sha; return r.commit;
 }
+
+// ---------- צוות: "שם" או "שם | אימייל" (אימייל = תיוג ב-Teams) ----------
+let teamEmails = {};
+function parseTeam(text) {
+  const names = [], emails = {};
+  text.split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith("#")).forEach(l => {
+    const [n, e] = l.split(/\s*[|,\t]\s*/), name = (n || "").trim();
+    if (!name || names.includes(name)) return;
+    names.push(name);
+    if (e && e.includes("@")) emails[name] = e.trim();
+  });
+  return { names, emails };
+}
+const teamToText = (names, emails) => names.map(n => emails[n] ? `${n} | ${emails[n]}` : n).join("\n");
 
 // ---------- tasks.txt (זהה ל-tasks.py) ----------
 function parseTasksTxt(text) {
@@ -423,6 +497,7 @@ function cardBlocks(sel) {
   const heading = text => B.push({ text, weight: "Bolder", color: "Accent", sep: true, cls: "h" });
   const line = (text, color = "") => B.push({ text, color });
   const dm = s => `${s.slice(8, 10)}.${s.slice(5, 7)}`;
+  const who = n => teamEmails[n] ? `<at>${n}</at>` : n;  // תיוג ב-Teams (זהה ל-tasks.py)
   if (d.message.length) {
     heading("הודעה לצוות");
     d.message.forEach(l => line(l || " "));
@@ -445,8 +520,8 @@ function cardBlocks(sel) {
     line(PRI_LINE[t.priority], PRI_COLOR[t.priority] || "");
     // שורה לכל פרט; פרט ריק לא מוצג
     if (!t.owner) line("👤 לא הוגדר", "Attention");
-    else if (away.has(t.owner) && !isFuture(t)) line(`👤 ${t.owner} (לא זמין/ה היום, צריך מחליף)`, "Warning");  // רק למשימות של היום
-    else line(`👤 ${t.owner}`);
+    else if (away.has(t.owner) && !isFuture(t)) line(`👤 ${who(t.owner)} (לא זמין/ה היום, צריך מחליף)`, "Warning");  // רק למשימות של היום
+    else line(`👤 ${who(t.owner)}`);
     if (t.status && t.status !== "לא התחיל") line(`${STATUSES[t.status]} ${t.status}`);
     if (t.due === FUTURE) line("📅 טרם נקבע");
     else if (t.due) {
@@ -473,6 +548,7 @@ function selected() {
   const b = collect();
   return { unavailable: b.unavailable, tasks: b.tasks.filter(t => t.publish), message: b.messagePublish ? b.message : "" };
 }
+
 const hasContent = d => d.tasks.length > 0 || !!(d.message && d.message.trim());
 function renderPreview() {
   const all = collect(), d = selected();
@@ -489,13 +565,133 @@ function renderPreview() {
     el.querySelectorAll(".f-due").forEach(x => x.closest(".dfield").classList.toggle("late", !!x.value && x.value < todayISO()));
     el.querySelectorAll(".f-status").forEach(x => x.closest(".row").classList.toggle("done", x.value === "הושלם"));
   });
+  applyFilters();
   if (!hasContent(d)) { $("preview").innerHTML = `<span class="empty">${all.tasks.length || all.message.trim()
     ? "סמנו ☑ ליד מה שתרצו לפרסם." : "הוסיפו משימות ללוח."}</span>`; return; }
   $("preview").innerHTML = cardBlocks(d).map(b => `<p class="tb ${b.weight||""} ${b.size||""} ${b.color||""}
-    ${b.subtle?"subtle":""} ${b.sep?"sep":""} ${b.small?"sp-Small":""} ${b.cls||""}">${esc(b.text)}</p>`).join("");
+    ${b.subtle?"subtle":""} ${b.sep?"sep":""} ${b.small?"sp-Small":""} ${b.cls||""}">${esc(b.text)
+      .replace(/&lt;at&gt;(.*?)&lt;\/at&gt;/g, '<span class="mention" title="יתויג ב-Teams">@$1</span>')}</p>`).join("");
 }
 
 // ---------- עריכה ----------
+// ---------- חיפוש וסינון (רק מסתיר שורות; לא משנה נתונים או פרסום) ----------
+let fDayVal = null;  // סינון ליום מסוים (נבחר מלוח השנה)
+function addDays(iso, n) { const [y, m, d] = iso.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); }
+function rowData(r) {
+  const o = {};
+  r.querySelectorAll("[data-k]").forEach(e => o[e.dataset.k] = e.type === "checkbox" ? e.checked : e.value.trim());
+  if (o.dueFuture) o.due = FUTURE;
+  return o;
+}
+const isFiltering = () => !!($("fSearch").value.trim() || $("fOwner").value || $("fStatus").value || $("fDate").value || fDayVal);
+function taskMatches(t, ignoreDate = false) {
+  const q = $("fSearch").value.trim().toLowerCase();
+  if (q && ![t.customer, t.title, t.note, t.equip, t.serial, t.ticket].some(x => (x || "").toLowerCase().includes(q))) return false;
+  const o = $("fOwner").value;
+  if (o === "__none__" ? !!t.owner : (o && t.owner !== o)) return false;
+  const st = $("fStatus").value;
+  if (st && (t.status || "לא התחיל") !== st) return false;
+  if (ignoreDate) return true;
+  const today = todayISO(), due = t.due || "", dated = !!due && due !== FUTURE;
+  if (fDayVal && due !== fDayVal) return false;
+  switch ($("fDate").value) {
+    case "overdue": return dated && due < today;
+    case "today": return due === today;
+    case "week": return dated && due >= today && due <= addDays(today, 6);
+    case "future": return due === FUTURE;
+    case "none": return !due;
+  }
+  return true;
+}
+function fillFilterOptions() {
+  const keep = (id, html) => { const v = $(id).value; $(id).innerHTML = html; $(id).value = v; if ($(id).value !== v) $(id).value = ""; };
+  keep("fOwner", `<option value="">כל אנשי הצוות</option>${team.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}<option value="__none__">ללא אחראי</option>`);
+  keep("fStatus", `<option value="">כל הסטטוסים</option>${Object.keys(STATUSES).map(s => `<option value="${s}">${s}</option>`).join("")}`);
+}
+function applyFilters() {
+  const active = isFiltering();
+  let shown = 0, total = 0;
+  document.querySelectorAll(".bucket").forEach(b => {
+    let vis = 0;
+    b.querySelectorAll(".rows > .row").forEach(r => {
+      const ok = !active || taskMatches(rowData(r));
+      r.classList.toggle("fhide", !ok); total++; if (ok) { vis++; shown++; }
+    });
+    b.classList.toggle("fempty", active && vis === 0);
+  });
+  $("buckets").classList.toggle("filtering", active);
+  $("fCount").textContent = active ? `מוצגות ${shown} מתוך ${total} משימות` : `${total} משימות בלוח`;
+  $("fClear").classList.toggle("hidden", !active);
+  $("fDay").classList.toggle("hidden", !fDayVal);
+  if (fDayVal) $("fDay").textContent = `📅 ${isoToDMY(fDayVal)} ✕`;
+  if (active) document.querySelectorAll(".filtering .bucket textarea.grow").forEach(autosize);
+  renderCalendar();
+}
+function clearDay() { fDayVal = null; applyFilters(); }
+function clearFilters() { $("fSearch").value = ""; $("fOwner").value = ""; $("fStatus").value = ""; $("fDate").value = ""; fDayVal = null; applyFilters(); }
+document.addEventListener("input", e => { if (e.target.closest(".toolbar")) applyFilters(); });
+
+// ---------- לוח שנה חודשי ----------
+let calMonth = null, calSel = null;  // calMonth = "YYYY-MM"
+function setView(v) {
+  document.querySelectorAll(".view-tabs .tab").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  $("calView").classList.toggle("hidden", v !== "cal");
+  $("buckets").classList.toggle("hidden", v !== "board");
+  $("fDate").disabled = v === "cal";  // בלוח השנה התאריך נבחר בלחיצה על יום
+  renderCalendar();
+}
+function calShift(n) { const [y, m] = calMonth.split("-").map(Number); calMonth = new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); renderCalendar(); }
+function calToday() { calMonth = todayISO().slice(0, 7); calSel = todayISO(); renderCalendar(); }
+function calPick(iso) { calSel = calSel === iso ? null : iso; renderCalendar(); }
+function filterDay(iso) { fDayVal = iso; $("fDate").value = ""; setView("board"); applyFilters(); }
+function renderCalendar() {
+  if ($("calView").classList.contains("hidden")) return;
+  const today = todayISO(); calMonth = calMonth || today.slice(0, 7);
+  const b = collect(), tasks = b.tasks.filter(t => taskMatches(t, true));
+  const byDay = {};
+  tasks.forEach(t => { if (t.due && t.due !== FUTURE) (byDay[t.due] = byDay[t.due] || []).push(t); });
+  const undated = tasks.filter(t => !t.due || t.due === FUTURE).length;
+  const awayOn = day => b.unavailable.filter(p => {
+    let f = p.from, to = p.to; if (f && to && f > to) [f, to] = [to, f];
+    return f || to ? (!f || f <= day) && (!to || to >= day) : day === today;
+  });
+  const [y, m] = calMonth.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1)), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const weeks = Math.ceil((first.getUTCDay() + days) / 7);
+  const title = first.toLocaleDateString("he-IL", { month: "long", year: "numeric", timeZone: "UTC" });
+  const tasksWord = n => n === 1 ? "משימה" : "משימות";
+  let cells = "";
+  for (let i = 0; i < weeks * 7; i++) {
+    const iso = addDays(`${calMonth}-01`, i - first.getUTCDay()), list = byDay[iso] || [], aw = awayOn(iso);
+    const late = iso < today && list.some(t => t.status !== "הושלם");
+    cells += `<div class="cal-day ${iso.slice(0, 7) !== calMonth ? "out" : ""} ${iso === today ? "today" : ""} ${iso === calSel ? "sel" : ""}"
+      onclick="calPick('${iso}')" title="${isoToDMY(iso)}"><span class="n">${+iso.slice(8)}</span>
+      ${list.length ? `<span class="cnt ${late ? "late" : ""}">${list.length} ${tasksWord(list.length)}</span>` : ""}
+      ${aw.length ? `<span class="away">${aw.length} ${aw.length === 1 ? "לא זמין" : "לא זמינים"}</span>` : ""}</div>`;
+  }
+  let detail = "";
+  if (calSel) {
+    const list = byDay[calSel] || [], aw = awayOn(calSel);
+    const items = list.map(t => `<div class="cal-item"><b>${esc([t.customer, t.title].filter(Boolean).join(" – "))}</b>
+      <div class="meta">${[icon(t.bucket) + " " + t.bucket, "👤 " + (t.owner || "ללא אחראי"),
+        `${PRI_ICON[t.priority]} ${t.priority}`, t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : ""]
+        .filter(Boolean).map(esc).join(" · ")}</div></div>`).join("");
+    const awayTxt = aw.map(p => `<div class="cal-item meta">🙋 ${esc(p.name)}${p.reason ? ": " + esc(p.reason) : ""}</div>`).join("");
+    detail = `<div class="cal-list"><h3>${isoToDMY(calSel)}
+        ${list.length ? `<button type="button" class="ghost" style="color:var(--accent)" onclick="filterDay('${calSel}')">הצג בלוח המשימות ←</button>` : ""}</h3>
+      ${items || `<div class="empty">אין משימות ביום הזה.</div>`}
+      ${aw.length ? `<div class="empty" style="margin-top:8px">לא זמינים:</div>${awayTxt}` : ""}</div>`;
+  }
+  $("calView").innerHTML = `<div class="cal-head">
+      <button type="button" onclick="calShift(-1)" title="חודש קודם">→</button>
+      <h2>${title}</h2>
+      <button type="button" onclick="calToday()">היום</button>
+      <button type="button" onclick="calShift(1)" title="חודש הבא">←</button></div>
+    <div class="cal-grid">${["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"].map(d => `<div class="cal-dow">${d}</div>`).join("")}${cells}</div>
+    ${undated ? `<div class="empty" style="margin-top:6px">${undated} ${tasksWord(undated)} בלי תאריך לא מוצגות בלוח השנה.</div>` : ""}
+    ${detail}`;
+}
+
 // ---------- שדה תאריך בפורמט DD/MM/YYYY ----------
 // הערך הנשמר (data-k) הוא YYYY-MM-DD בשדה מוסתר; המשתמש רואה ומקליד DD/MM/YYYY
 const isoToDMY = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso || "") ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "";
@@ -644,9 +840,9 @@ let resizeTimer;
 window.addEventListener("resize", () => { clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => document.querySelectorAll("textarea.grow").forEach(autosize), 150); });
 document.addEventListener("input", e => {
-  if (!e.target.closest("#app") || e.target.closest(".manage")) return;
+  if (!e.target.closest("#app") || e.target.closest(".manage") || e.target.closest(".toolbar")) return;
   if (e.target.classList.contains("pub-all")) {
-    e.target.closest(".bucket").querySelectorAll(".f-pub").forEach(x => x.checked = e.target.checked);
+    e.target.closest(".bucket").querySelectorAll(".rows > .row:not(.fhide) .f-pub").forEach(x => x.checked = e.target.checked);
   }
   if (e.target.dataset.k === "priority") e.target.className = "p-" + e.target.value;
   if (e.target.dataset.k === "status") e.target.className = "f-status s-" + e.target.value;
@@ -661,6 +857,7 @@ window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); 
 
 // ---------- טעינה ושמירה ----------
 function render(board) {
+  fillFilterOptions();
   $("availPanel").classList.toggle("collapsed", !!foldState().__availability__);  // פתוח כברירת מחדל
   $("msgPanel").classList.toggle("collapsed", !!foldState().__message__);
   buckets = board.buckets?.length ? board.buckets : [...DEFAULT_BUCKETS];
@@ -677,8 +874,8 @@ async function load() {
   status("info", "טוען מ-GitHub…");
   try {
     const [boardText, teamText] = await Promise.all([readFile("board.json"), readFile("team.txt")]);
-    team = teamText.split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith("#"));
-    $("teamText").value = team.join("\n");
+    ({ names: team, emails: teamEmails } = parseTeam(teamText));
+    $("teamText").value = teamToText(team, teamEmails);
     let board;
     if (boardText.trim()) board = JSON.parse(boardText);
     else { // פעם ראשונה: מייבאים את tasks.txt
@@ -745,14 +942,16 @@ async function watchRun(commitSha) {
 }
 async function saveSettings() {
   const lines = id => [...new Set($(id).value.split(/\r?\n/).map(s => s.trim()).filter(Boolean))];
-  const newTeam = lines("teamText"), newBuckets = lines("bucketText");
+  const tp = parseTeam($("teamText").value), newBuckets = lines("bucketText");
+  const newTeamText = teamToText(tp.names, tp.emails), oldTeamText = teamToText(team, teamEmails);
   if (!newBuckets.length) return msg("setMsg", "err", "צריך לפחות bucket אחד.");
   const board = collect();
   const orphan = [...new Set(board.tasks.map(t => t.bucket))].filter(b => !newBuckets.includes(b));
   if (orphan.length) return msg("setMsg", "err", `יש משימות ב-${orphan.join(", ")}. מחקו אותן לפני הסרת ה-bucket.`);
   try {
-    if (newTeam.join("\n") !== team.join("\n")) await writeFile("team.txt", newTeam.join("\n") + "\n", "Update team list");
-    team = newTeam; buckets = newBuckets;
+    if (newTeamText !== oldTeamText) await writeFile("team.txt", newTeamText + "\n", "Update team list");
+    team = tp.names; teamEmails = tp.emails; buckets = newBuckets;
+    $("teamText").value = newTeamText;
     render({ ...board, buckets });
     await saveBoard("Update board settings"); setDirty(false);
     msg("setMsg", "ok", "✓ ההגדרות נשמרו.");
