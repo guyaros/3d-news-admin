@@ -233,7 +233,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "3.1";
+const VERSION = "3.2";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -391,19 +391,19 @@ function cardBlocks(sel) {
     B.push({ text: `${i}. ${name}${PRI_LABEL[t.priority] || ""}`, weight: "Bolder", color: PRI_COLOR[t.priority] || "",
              subtle: t.priority === "בהמתנה", cls: first ? "t1" : "t" });
     // שורה לכל פרט; פרט ריק לא מוצג
-    if (!t.owner) line("אחראי: לא הוגדר", "Attention");
-    else if (away.has(t.owner) && !isFuture(t)) line(`אחראי: ${t.owner} (לא זמין/ה היום, צריך מחליף)`, "Warning");  // רק למשימות של היום
-    else line(`אחראי: ${t.owner}`);
-    if (t.status && t.status !== "לא התחיל") line(`סטטוס: ${t.status}`);
-    if (t.due === FUTURE) line("מועד: טרם נקבע");
+    if (!t.owner) line("👤 לא הוגדר", "Attention");
+    else if (away.has(t.owner) && !isFuture(t)) line(`👤 ${t.owner} (לא זמין/ה היום, צריך מחליף)`, "Warning");  // רק למשימות של היום
+    else line(`👤 ${t.owner}`);
+    if (t.status && t.status !== "לא התחיל") line(`${STATUSES[t.status]} ${t.status}`);
+    if (t.due === FUTURE) line("📅 טרם נקבע");
     else if (t.due) {
-      if (t.due < today) line(`מועד: ${dm(t.due)} (באיחור)`, "Attention");
-      else line(t.due === today ? "מועד: היום" : `מועד: ${dm(t.due)}`);
+      if (t.due < today) line(`📅 ${dm(t.due)} (באיחור)`, "Attention");
+      else line(t.due === today ? "📅 היום" : `📅 ${dm(t.due)}`);
     }
     const equip = [t.equip, t.serial ? `S/N ${t.serial}` : ""].filter(Boolean).join(" · ");
-    if (equip) line(`ציוד: ${equip}`);
-    if (t.ticket) line(`קריאת שירות: ${t.ticket}`);
-    if (t.note) line(`הערות: ${t.note}`);
+    if (equip) line(`🖨️ ${equip}`);
+    if (t.ticket) line(`🎫 ${t.ticket}`);
+    if (t.note) line(`📝 ${t.note}`);
   };
   let i = 0;
   for (const b of new Set(d.tasks.filter(t => !isFuture(t)).map(t => t.bucket))) {  // סדר ה-buckets לפי הקובץ
