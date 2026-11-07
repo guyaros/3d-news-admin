@@ -259,7 +259,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "4.0";
+const VERSION = "4.1";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -298,7 +298,8 @@ function msg(id, kind, text) { const m = $(id); m.className = "msg " + kind; m.t
 let token = null, team = [], buckets = [...DEFAULT_BUCKETS], sha = {}, timer, dirty = false;
 
 async function gh(path, opts = {}) {
-  const r = await fetch(API + path, { ...opts, headers: { "Authorization": `Bearer ${token}`,
+  // cache: "no-store" - בלי זה הדפדפן מחזיר תשובה שמורה עד דקה (GitHub מאפשר max-age=60)
+  const r = await fetch(API + path, { cache: "no-store", ...opts, headers: { "Authorization": `Bearer ${token}`,
     "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {}) } });
   if (!r.ok) {
     const body = await r.json().catch(() => ({}));
@@ -676,16 +677,21 @@ async function publish() {
 // מעקב אחרי הרצת GitHub Actions (דורש הרשאת Actions: Read-only)
 async function watchRun(commitSha) {
   const link = `https://github.com/${REPO}/actions/workflows/${WORKFLOW}`;
+  const STAGE = { queued: "ממתין בתור", waiting: "ממתין בתור", pending: "ממתין בתור", requested: "ממתין בתור", in_progress: "שולח" };
+  const t0 = Date.now();
   for (let i = 0; i < 40; i++) {
-    await new Promise(r => setTimeout(r, 4000));
+    await new Promise(r => setTimeout(r, 3000));
     let runs;
     try { runs = await gh(`/actions/workflows/${WORKFLOW}/runs?head_sha=${commitSha}&per_page=1`); }
     catch { return status("ok", `✓ נשמר. הכרטיס יגיע לערוץ תוך כדקה. <a href="${link}" target="_blank">מעקב</a>`); }
-    const run = runs.workflow_runs[0];
+    const run = runs.workflow_runs[0], sec = Math.round((Date.now() - t0) / 1000);
     if (run && run.status === "completed") {
-      return run.conclusion === "success" ? status("ok", "✓ נשלח לערוץ ב-Teams.")
+      const at = new Date(run.updated_at).toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+      return run.conclusion === "success"
+        ? status("ok", `✓ נשלח בהצלחה לערוץ ב-Teams (${at}). <a href="${run.html_url}" target="_blank">פרטים</a>`)
         : status("err", `השליחה נכשלה. <a href="${run.html_url}" target="_blank">פרטים ב-GitHub</a>`);
     }
+    status("info", `✓ נשמר. ${run ? STAGE[run.status] || "שולח" : "ממתין להתחלת השליחה"}… (${sec} שניות)`);
   }
   status("info", `נשמר, אבל השליחה עדיין לא הסתיימה. <a href="${link}" target="_blank">מעקב</a>`);
 }
