@@ -216,7 +216,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "2.2";
+const VERSION = "2.3";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -324,9 +324,13 @@ function cardBlocks(sel) {
   const away = new Set(d.unavailable.map(p => p.name)), today = todayISO();
   // משימה עם תאריך אחרי היום עוברת לחלק "משימות עתידיות"
   const isFuture = t => t.due === FUTURE || (!!t.due && t.due > today);
-  const fkey = t => t.due === FUTURE ? "9999" : t.due;  // "עתידי" בלי מועד - בסוף
-  const future = d.tasks.filter(isFuture).sort((x, y) => fkey(x) < fkey(y) ? -1 : fkey(x) > fkey(y) ? 1 : 0);
-  const current = d.tasks.filter(t => !isFuture(t));
+  const rank = t => PRIORITIES[t.priority][0];
+  // עתידיות: לפי תאריך ("עתידי" בלי מועד בסוף), ואז לפי עדיפות
+  const fkey = t => t.due === FUTURE ? "9999" : t.due;
+  const future = d.tasks.filter(isFuture).sort((x, y) =>
+    fkey(x) < fkey(y) ? -1 : fkey(x) > fkey(y) ? 1 : rank(x) - rank(y));
+  // להיום: לפי עדיפות; בתוך אותה עדיפות נשמר הסדר שנקבע בלוח (מיון יציב)
+  const current = d.tasks.filter(t => !isFuture(t)).sort((x, y) => rank(x) - rank(y));
   const summary = current.length ? [current.length === 1 ? "1 משימה" : `${current.length} משימות`] : [];
   if (future.length) summary.push(future.length === 1 ? "1 עתידית" : `${future.length} עתידיות`);
   const urgent = d.tasks.filter(t => t.priority === "דחוף").length;
@@ -350,7 +354,7 @@ function cardBlocks(sel) {
   const taskBlocks = (i, t, prefix = "") => {
     let who, c;
     if (!t.owner) { who = "❗ ללא אחראי"; c = "Attention"; }
-    else if (away.has(t.owner)) { who = `${t.owner} · ⚠️ לא זמין/ה היום, צריך מחליף`; c = "Warning"; }
+    else if (away.has(t.owner) && !isFuture(t)) { who = `${t.owner} · ⚠️ לא זמין/ה היום, צריך מחליף`; c = "Warning"; }  // רק למשימות של היום
     else { who = t.owner; c = ""; }
     let due = "";
     if (t.due === FUTURE) due = "📅 ללא מועד";
@@ -364,7 +368,7 @@ function cardBlocks(sel) {
     B.push({ text: [`👤 ${who}`, st, due, t.note].filter(Boolean).join(" · "), color: c });
   };
   let i = 0;
-  for (const b of new Set(current.map(t => t.bucket))) {  // לפי הסדר שנקבע בלוח
+  for (const b of new Set(d.tasks.filter(t => !isFuture(t)).map(t => t.bucket))) {  // סדר ה-buckets לפי הקובץ
     B.push({ text: b ? `${icon(b)} ${b}` : "📋 משימות", weight: "Bolder", color: "Accent", sep: true });
     current.filter(t => t.bucket === b).forEach(t => taskBlocks(++i, t));
   }
