@@ -121,6 +121,8 @@
   .tb.subtle{color:var(--sub);font-size:13px}
   .tb.sep{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}
   .tb.sp-Small{margin-top:4px}
+  .tb.h{font-size:16px;margin-top:22px}
+  .tb.t1{margin-top:10px} .tb.t{margin-top:16px}
   .Attention{color:var(--red)} .Warning{color:var(--orange)} .Good{color:var(--green)} .Accent{color:var(--accent)}
   details summary{cursor:pointer;color:var(--sub);font-size:14px}
   .manage{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
@@ -231,7 +233,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "3.0";
+const VERSION = "3.1";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -364,48 +366,53 @@ function cardBlocks(sel) {
   if (away.size) summary.push(`${away.size} לא זמינים היום`);
   const date = new Date().toLocaleDateString("he-IL", { timeZone: TZ, weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
   const B = [
-    { text: "📋 משימות להיום", size: "Large", weight: "Bolder" },
+    { text: "משימות להיום", size: "Large", weight: "Bolder" },
     { text: [date, ...summary].join(" · "), subtle: true },
   ];
+  const heading = text => B.push({ text, weight: "Bolder", color: "Accent", sep: true, cls: "h" });
+  const line = (text, color = "") => B.push({ text, color });
+  const dm = s => `${s.slice(8, 10)}.${s.slice(5, 7)}`;
   if (d.message.length) {
-    B.push({ text: "📝 הודעה לצוות", weight: "Bolder", sep: true });
-    d.message.forEach(l => B.push({ text: l || " " }));
+    heading("הודעה לצוות");
+    d.message.forEach(l => line(l || " "));
   }
   if (d.unavailable.length) {
-    B.push({ text: "סטטוס זמינות אנשי צוות", weight: "Bolder", sep: true });
-    const dm = s => `${s.slice(8, 10)}.${s.slice(5, 7)}`;
+    heading("סטטוס זמינות אנשי צוות");
     d.unavailable.forEach(p => {
       const when = p.from && p.to && p.from !== p.to ? `${dm(p.from)}–${dm(p.to)}`
         : p.from || p.to ? (p.from ? "" : "עד ") + dm(p.from || p.to) : "";
-      B.push({ text: `• ${p.name}${p.reason ? ": " + p.reason : ""}${when ? " · 📅 " + when : ""}`, small: true });
+      line(`• ${p.name}${p.reason ? ": " + p.reason : ""}${when ? ` (${when})` : ""}`);
     });
   }
-  const taskBlocks = (i, t, prefix = "") => {
-    let who, c;
-    if (!t.owner) { who = "❗ ללא אחראי"; c = "Attention"; }
-    else if (away.has(t.owner) && !isFuture(t)) { who = `${t.owner} · ⚠️ לא זמין/ה היום, צריך מחליף`; c = "Warning"; }  // רק למשימות של היום
-    else { who = t.owner; c = ""; }
-    let due = "";
-    if (t.due === FUTURE) due = "📅 ללא מועד";
+  const PRI_LABEL = { "דחוף": " (דחוף)", "גבוהה": " (עדיפות גבוהה)", "בהמתנה": " (בהמתנה)" };
+  const PRI_COLOR = { "דחוף": "Attention", "גבוהה": "Warning" };
+  const taskBlocks = (i, t, first) => {
+    const name = [t.customer, t.title].filter(Boolean).join(" – ");
+    B.push({ text: `${i}. ${name}${PRI_LABEL[t.priority] || ""}`, weight: "Bolder", color: PRI_COLOR[t.priority] || "",
+             subtle: t.priority === "בהמתנה", cls: first ? "t1" : "t" });
+    // שורה לכל פרט; פרט ריק לא מוצג
+    if (!t.owner) line("אחראי: לא הוגדר", "Attention");
+    else if (away.has(t.owner) && !isFuture(t)) line(`אחראי: ${t.owner} (לא זמין/ה היום, צריך מחליף)`, "Warning");  // רק למשימות של היום
+    else line(`אחראי: ${t.owner}`);
+    if (t.status && t.status !== "לא התחיל") line(`סטטוס: ${t.status}`);
+    if (t.due === FUTURE) line("מועד: טרם נקבע");
     else if (t.due) {
-      const dm = `${t.due.slice(8, 10)}.${t.due.slice(5, 7)}`;
-      due = t.due < today ? `📅 ${dm} (באיחור)` : t.due === today ? "📅 היום" : `📅 ${dm}`;
-      if (t.due < today && !c) c = "Attention";
+      if (t.due < today) line(`מועד: ${dm(t.due)} (באיחור)`, "Attention");
+      else line(t.due === today ? "מועד: היום" : `מועד: ${dm(t.due)}`);
     }
-    const st = t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : "";
-    B.push({ text: `${i}. ${prefix}${PRIORITIES[t.priority][1]}${[t.customer, t.title].filter(Boolean).join(" – ")}`, weight: "Bolder", small: true });
-    const eq = t.equip ? `🖨️ ${t.equip}${t.serial ? ` (S/N ${t.serial})` : ""}` : t.serial ? `🖨️ S/N ${t.serial}` : "";
-    const tk = t.ticket ? `🎫 קריאה ${t.ticket}` : "";
-    B.push({ text: [`👤 ${who}`, st, due, eq, tk, t.note].filter(Boolean).join(" · "), color: c });
+    const equip = [t.equip, t.serial ? `S/N ${t.serial}` : ""].filter(Boolean).join(" · ");
+    if (equip) line(`ציוד: ${equip}`);
+    if (t.ticket) line(`קריאת שירות: ${t.ticket}`);
+    if (t.note) line(`הערות: ${t.note}`);
   };
   let i = 0;
   for (const b of new Set(d.tasks.filter(t => !isFuture(t)).map(t => t.bucket))) {  // סדר ה-buckets לפי הקובץ
-    B.push({ text: b ? `${icon(b)} ${b}` : "📋 משימות", weight: "Bolder", color: "Accent", sep: true });
-    current.filter(t => t.bucket === b).forEach(t => taskBlocks(++i, t));
+    heading(b || "משימות");
+    current.filter(t => t.bucket === b).forEach((t, k) => taskBlocks(++i, t, k === 0));
   }
   if (future.length) {
-    B.push({ text: "📆 משימות לביצוע", weight: "Bolder", color: "Accent", sep: true });
-    future.forEach(t => taskBlocks(++i, t, t.bucket ? icon(t.bucket) + " " : ""));
+    heading("משימות לביצוע");
+    future.forEach((t, k) => taskBlocks(++i, t, k === 0));
   }
   return B;
 }
@@ -432,7 +439,7 @@ function renderPreview() {
   if (!hasContent(d)) { $("preview").innerHTML = `<span class="empty">${all.tasks.length || all.message.trim()
     ? "סמנו ☑ ליד מה שתרצו לפרסם." : "הוסיפו משימות ללוח."}</span>`; return; }
   $("preview").innerHTML = cardBlocks(d).map(b => `<p class="tb ${b.weight||""} ${b.size||""} ${b.color||""}
-    ${b.subtle?"subtle":""} ${b.sep?"sep":""} ${b.small?"sp-Small":""}">${esc(b.text)}</p>`).join("");
+    ${b.subtle?"subtle":""} ${b.sep?"sep":""} ${b.small?"sp-Small":""} ${b.cls||""}">${esc(b.text)}</p>`).join("");
 }
 
 // ---------- עריכה ----------
