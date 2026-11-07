@@ -109,7 +109,11 @@
   .status a{color:inherit}
   .dirty-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--orange);margin-inline-end:6px}
   /* preview */
+  /* תצוגה מקדימה: נשארת במקום, עם גלילה משלה (לא תלויה בגלילת הלוח) */
   .preview{position:sticky;top:16px}
+  .preview .panel{display:flex;flex-direction:column;max-height:calc(100vh - 100px);margin-bottom:0}
+  .preview .tcard{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  @media(max-width:1100px){.preview{position:static}.preview .panel{max-height:none}}
   .tcard{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--card)}
   .tb{margin:0} .tb.Bolder{font-weight:700} .tb.Large{font-size:20px}
   .tb.subtle{color:var(--sub);font-size:13px}
@@ -225,7 +229,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "2.5";
+const VERSION = "2.6";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
