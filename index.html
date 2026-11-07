@@ -390,8 +390,15 @@ async function login() {
   const t = $("tokenInput").value.trim(); if (!t) return;
   token = t;
   try { await gh(""); storage("set", t); $("tokenInput").value = ""; start(); }
-  catch (e) { token = null; show("loginMsg", "err", e.status === 404 || e.status === 401
-    ? "המפתח לא נותן גישה ל-guyaros/3d-news. בדקו את ההגדרות לפי ההוראות למטה." : "שגיאה: " + esc(e.message)); }
+  catch (e) {
+    token = null;
+    const why = {
+      401: "GitHub לא מזהה את המפתח (401). ייתכן שלא הועתק במלואו, או שהוא בוטל. העתיקו שוב, או צרו מפתח חדש.",
+      404: "המפתח תקין, אבל אין לו גישה ל-guyaros/3d-news (404). בהגדרות המפתח, תחת Repository access, צריך לבחור Only select repositories ואז guyaros/3d-news.",
+      403: "למפתח אין מספיק הרשאות (403). בדקו ש-Contents מוגדר Read and write.",
+    }[e.status] || `שגיאה: ${esc(e.message)}`;
+    show("loginMsg", "err", why);
+  }
 }
 function logout(reason) {
   storage("del"); token = null;
