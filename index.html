@@ -186,6 +186,15 @@
   .cal-list h3{font-size:15px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
   .cal-item{padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
   .cal-item .meta{color:var(--sub);font-size:12px}
+  /* ---------- ארכיון ---------- */
+  .t-actions{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .t-actions .arch-btn{font-size:13px;padding:3px 5px}
+  .arch-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+  .arch-main{flex:1;min-width:0}
+  .arch-main .meta{color:var(--sub);font-size:12px}
+  .arch-btns{display:flex;gap:4px;align-items:center}
+  .arch-btns button{font-size:13px;padding:4px 10px}
+
 
   .tb.t1{margin-top:10px} .tb.t{margin-top:16px}
   .Attention{color:var(--red)} .Warning{color:var(--orange)} .Good{color:var(--green)} .Accent{color:var(--accent)}
@@ -240,6 +249,7 @@
       <div class="view-tabs">
         <button type="button" class="tab on" data-view="board" onclick="setView('board')">📋 לוח משימות</button>
         <button type="button" class="tab" data-view="cal" onclick="setView('cal')">📅 לוח שנה</button>
+        <button type="button" class="tab" data-view="arch" onclick="setView('arch')">🗄️ ארכיון <span id="archCnt"></span></button>
         <span class="spacer"></span>
         <span class="empty" id="fCount"></span>
       </div>
@@ -257,6 +267,7 @@
         </select>
         <span id="fDay" class="chip hidden" onclick="clearDay()" title="הסרת סינון היום"></span>
         <button type="button" class="ghost hidden" id="fClear" onclick="clearFilters()">נקה סינון</button>
+        <button type="button" class="ghost hidden" id="archDoneBtn" onclick="archiveDone()" title="העברת כל המשימות במצב ✅ הושלם לארכיון">📦 העבר שהושלמו לארכיון</button>
       </div>
     </div>
 
@@ -283,6 +294,7 @@
     </div>
 
     <div class="panel hidden" id="calView"></div>
+    <div class="panel hidden" id="archView"></div>
 
     <div id="buckets"></div>
 
@@ -331,7 +343,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "5.4";
+const VERSION = "5.5";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -573,6 +585,61 @@ function renderPreview() {
 
 // ---------- עריכה ----------
 // ---------- חיפוש וסינון (רק מסתיר שורות; לא משנה נתונים או פרסום) ----------
+
+// ---------- ארכיון ----------
+// משימות שהועברו לארכיון נשמרות ב-board.json (archive) ולא מתפרסמות ולא מופיעות בלוח השנה
+let archive = [];
+function archiveRow(r, quiet = false) {
+  const t = rowData(r);
+  delete t.dueFuture;
+  archive.unshift({ ...t, bucket: r.closest(".bucket").dataset.bucket, publish: false, archivedAt: todayISO() });
+  r.remove();
+  if (!quiet) { changed(); status("info", `<span class="dirty-dot"></span>הועבר לארכיון. לחצו "שמור לוח" כדי לשמור.`); }
+}
+function archiveDone() {
+  const rows = [...document.querySelectorAll(".bucket .rows > .row")].filter(r => r.querySelector(".f-status")?.value === "הושלם");
+  if (!rows.length) return status("info", "אין משימות במצב ✅ הושלם.");
+  if (!confirm(`להעביר ${rows.length} משימות שהושלמו לארכיון?`)) return;
+  rows.forEach(r => archiveRow(r, true));
+  changed();
+  status("info", `<span class="dirty-dot"></span>${rows.length} משימות הועברו לארכיון. לחצו "שמור לוח" כדי לשמור.`);
+}
+function restoreArch(i) {
+  const t = { ...archive[i] }; delete t.archivedAt;
+  const list = [...document.querySelectorAll(".bucket")];
+  let k = list.findIndex(b => b.dataset.bucket === t.bucket);
+  if (k < 0) { k = list.length - 1; t.bucket = list[k].dataset.bucket; }  // ה-bucket כבר לא קיים
+  archive.splice(i, 1);
+  addTask(k, t, false);
+  changed(); renderArchive();
+  status("info", `<span class="dirty-dot"></span>המשימה שוחזרה ל-${esc(t.bucket)}. לחצו "שמור לוח" כדי לשמור.`);
+}
+function deleteArch(i) {
+  const t = archive[i];
+  if (!confirm(`למחוק לצמיתות את "${[t.customer, t.title].filter(Boolean).join(" – ")}" מהארכיון?`)) return;
+  archive.splice(i, 1); changed(); renderArchive();
+}
+function renderArchive() {
+  $("archCnt").textContent = archive.length ? `(${archive.length})` : "";
+  const doneCnt = [...document.querySelectorAll(".bucket .f-status")].filter(x => x.value === "הושלם").length;
+  $("archDoneBtn").classList.toggle("hidden", !doneCnt);
+  $("archDoneBtn").textContent = `📦 העבר ${doneCnt} שהושלמו לארכיון`;
+  if ($("archView").classList.contains("hidden")) return;
+  const items = archive.map((t, i) => ({ t, i })).filter(({ t }) => taskMatches(t, true));
+  $("archView").innerHTML = `<h2>🗄️ ארכיון <span class="count">${archive.length}</span></h2>
+    ${items.length ? items.map(({ t, i }) => `<div class="arch-item">
+      <div class="arch-main"><b>${esc([t.customer, t.title].filter(Boolean).join(" – ")) || "(ללא שם)"}</b>
+        <div class="meta">${[`הועבר ${isoToDMY(t.archivedAt)}`, `${icon(t.bucket)} ${t.bucket}`, t.owner ? `👤 ${t.owner}` : "",
+          t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status] || ""} ${t.status}` : "",
+          [t.equip, t.serial ? `S/N ${t.serial}` : ""].filter(Boolean).join(" · "), t.ticket ? `🎫 ${t.ticket}` : "", t.note ? `📝 ${t.note}` : ""]
+          .filter(Boolean).map(esc).join(" · ")}</div></div>
+      <div class="arch-btns">
+        <button type="button" onclick="restoreArch(${i})" title="החזרה ללוח המשימות">↩ שחזר</button>
+        <button type="button" class="ghost" onclick="deleteArch(${i})" title="מחיקה לצמיתות">✕</button>
+      </div></div>`).join("")
+      : `<div class="empty">${archive.length ? "אין משימות בארכיון שמתאימות לחיפוש." : "הארכיון ריק. משימה מועברת לארכיון בכפתור 🗄️ שבשורת המשימה."}</div>`}`;
+}
+
 let fDayVal = null;  // סינון ליום מסוים (נבחר מלוח השנה)
 function addDays(iso, n) { const [y, m, d] = iso.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); }
 function rowData(r) {
@@ -623,7 +690,7 @@ function applyFilters() {
   $("fDay").classList.toggle("hidden", !fDayVal);
   if (fDayVal) $("fDay").textContent = `📅 ${isoToDMY(fDayVal)} ✕`;
   if (active) document.querySelectorAll(".filtering .bucket textarea.grow").forEach(autosize);
-  renderCalendar();
+  renderCalendar(); renderArchive();
 }
 function clearDay() { fDayVal = null; applyFilters(); }
 function clearFilters() { $("fSearch").value = ""; $("fOwner").value = ""; $("fStatus").value = ""; $("fDate").value = ""; fDayVal = null; applyFilters(); }
@@ -634,9 +701,10 @@ let calMonth = null, calSel = null;  // calMonth = "YYYY-MM"
 function setView(v) {
   document.querySelectorAll(".view-tabs .tab").forEach(b => b.classList.toggle("on", b.dataset.view === v));
   $("calView").classList.toggle("hidden", v !== "cal");
+  $("archView").classList.toggle("hidden", v !== "arch");
   $("buckets").classList.toggle("hidden", v !== "board");
-  $("fDate").disabled = v === "cal";  // בלוח השנה התאריך נבחר בלחיצה על יום
-  renderCalendar();
+  $("fDate").disabled = v !== "board";  // בלוח השנה התאריך נבחר בלחיצה על יום
+  renderCalendar(); renderArchive();
 }
 function calShift(n) { const [y, m] = calMonth.split("-").map(Number); calMonth = new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); renderCalendar(); }
 function calToday() { calMonth = todayISO().slice(0, 7); calSel = todayISO(); renderCalendar(); }
@@ -791,7 +859,10 @@ function addTask(k, t = {}, focus = true) {
         `<option value="${p}" ${p === pri ? "selected" : ""}>${PRI_ICON[p]} ${p}</option>`).join("")}</select>
       ${peopleSelect("owner", t.owner, "— ללא אחראי —").replace("<select", '<select class="f-owner" title="אחראי"')}
     </div>
-    <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
+    <div class="t-actions">
+      <button class="ghost" title="מחיקה" onclick="this.closest('.row').remove();changed()">✕</button>
+      <button class="ghost arch-btn" title="העברה לארכיון" onclick="archiveRow(this.closest('.row'))">🗄️</button>
+    </div>`;
   bucketEl.querySelector(".rows").append(el);
   el.querySelectorAll("textarea.grow").forEach(autosize);
   if (focus) { el.querySelector(".f-title").focus(); changed(); }
@@ -822,7 +893,7 @@ function collect() {
       if (t.title || t.customer || t.note || t.equip || t.serial || t.ticket) tasks.push({ bucket: b.dataset.bucket, ...t });
     }));
   const unavailable = [...$("unavail").children].map(fields).filter(p => p.name);
-  return { buckets, unavailable, tasks, message: $("msgText").value, messagePublish: $("msgPub").checked };
+  return { buckets, unavailable, tasks, message: $("msgText").value, messagePublish: $("msgPub").checked, archive };
 }
 function setDirty(v) {
   dirty = v;
@@ -866,6 +937,7 @@ window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); 
 // ---------- טעינה ושמירה ----------
 function render(board) {
   fillFilterOptions();
+  archive = board.archive || [];
   $("availPanel").classList.toggle("collapsed", !!foldState().__availability__);  // פתוח כברירת מחדל
   $("msgPanel").classList.toggle("collapsed", !!foldState().__message__);
   buckets = board.buckets?.length ? board.buckets : [...DEFAULT_BUCKETS];
