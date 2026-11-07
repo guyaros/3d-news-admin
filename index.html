@@ -269,7 +269,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "4.5";
+const VERSION = "4.6";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -666,7 +666,7 @@ function render(board) {
   buckets = board.buckets?.length ? board.buckets : [...DEFAULT_BUCKETS];
   $("bucketText").value = buckets.join("\n");
   $("msgText").value = board.message || "";
-  requestAnimationFrame(() => autosize($("msgText")));
+  setTimeout(() => autosize($("msgText")), 0);
   $("msgPub").checked = !!board.messagePublish;
   $("unavail").innerHTML = "";
   (board.unavailable || []).forEach(p => addPerson(p, false));
