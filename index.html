@@ -206,7 +206,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "1.8";
+const VERSION = "1.9";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -310,8 +310,13 @@ function orderedBuckets(tasks) {
 // ---------- תצוגה מקדימה (זהה ל-build_card ב-tasks.py) ----------
 function cardBlocks(sel) {
   const d = parseTasksTxt(toTasksTxt(sel));  // בונים מהקובץ עצמו, כדי שהתצוגה תהיה זהה למה שיישלח
-  const away = new Set(d.unavailable.map(p => p.name));
-  const summary = d.tasks.length ? [`${d.tasks.length} משימות`] : [];
+  const away = new Set(d.unavailable.map(p => p.name)), today = todayISO();
+  // משימה עם תאריך אחרי היום עוברת לחלק "משימות עתידיות"
+  const isFuture = t => t.due && t.due > today;
+  const future = d.tasks.filter(isFuture).sort((x, y) => x.due < y.due ? -1 : x.due > y.due ? 1 : 0);
+  const current = d.tasks.filter(t => !isFuture(t));
+  const summary = current.length ? [`${current.length} משימות`] : [];
+  if (future.length) summary.push(future.length === 1 ? "1 עתידית" : `${future.length} עתידיות`);
   const urgent = d.tasks.filter(t => t.priority === "דחוף").length;
   const noOwner = d.tasks.filter(t => !t.owner).length;
   if (urgent) summary.push(urgent === 1 ? "1 דחופה" : `${urgent} דחופות`);
@@ -330,25 +335,29 @@ function cardBlocks(sel) {
     B.push({ text: "🤒 לא זמינים היום", weight: "Bolder", sep: true });
     d.unavailable.forEach(p => B.push({ text: `• ${p.name}${p.reason ? ": " + p.reason : ""}`, small: true }));
   }
+  const taskBlocks = (i, t, prefix = "") => {
+    let who, c;
+    if (!t.owner) { who = "❗ ללא אחראי"; c = "Attention"; }
+    else if (away.has(t.owner)) { who = `${t.owner} · ⚠️ לא זמין/ה היום, צריך מחליף`; c = "Warning"; }
+    else { who = t.owner; c = ""; }
+    let due = "";
+    if (t.due) {
+      const dm = `${t.due.slice(8, 10)}.${t.due.slice(5, 7)}`;
+      due = t.due < today ? `📅 ${dm} (באיחור)` : t.due === today ? "📅 היום" : `📅 ${dm}`;
+      if (t.due < today && !c) c = "Attention";
+    }
+    const st = t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : "";
+    B.push({ text: `${i}. ${prefix}${PRIORITIES[t.priority][1]}${t.customer ? t.customer + " – " : ""}${t.title}`, weight: "Bolder", small: true });
+    B.push({ text: [`👤 ${who}`, st, due, t.note].filter(Boolean).join(" · "), color: c });
+  };
   let i = 0;
-  for (const b of orderedBuckets(d.tasks)) {
+  for (const b of new Set(current.map(t => t.bucket))) {  // לפי הסדר שנקבע בלוח
     B.push({ text: b ? `${icon(b)} ${b}` : "📋 משימות", weight: "Bolder", color: "Accent", sep: true });
-    d.tasks.filter(t => t.bucket === b).forEach(t => {  // לפי הסדר שנקבע בלוח
-      i++;
-      let who, c;
-      if (!t.owner) { who = "❗ ללא אחראי"; c = "Attention"; }
-      else if (away.has(t.owner)) { who = `${t.owner} · ⚠️ לא זמין/ה היום, צריך מחליף`; c = "Warning"; }
-      else { who = t.owner; c = ""; }
-      let due = "";
-      if (t.due) {
-        const today = todayISO(), dm = `${t.due.slice(8, 10)}.${t.due.slice(5, 7)}`;
-        due = t.due < today ? `📅 ${dm} (באיחור)` : t.due === today ? "📅 היום" : `📅 ${dm}`;
-        if (t.due < today && !c) c = "Attention";
-      }
-      B.push({ text: `${i}. ${PRIORITIES[t.priority][1]}${t.customer ? t.customer + " – " : ""}${t.title}`, weight: "Bolder", small: true });
-      const st = t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : "";
-      B.push({ text: [`👤 ${who}`, st, due, t.note].filter(Boolean).join(" · "), color: c });
-    });
+    current.filter(t => t.bucket === b).forEach(t => taskBlocks(++i, t));
+  }
+  if (future.length) {
+    B.push({ text: "📆 משימות עתידיות", weight: "Bolder", color: "Accent", sep: true });
+    future.forEach(t => taskBlocks(++i, t, t.bucket ? icon(t.bucket) + " " : ""));
   }
   return B;
 }
