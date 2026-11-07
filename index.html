@@ -119,7 +119,8 @@
   .row.task.off{background:var(--muted-row)}
   #msgPanel.off textarea{background:var(--muted-row);color:var(--sub)}
   .row.task.off input:not([type=checkbox]),.row.task.off select{color:var(--sub)}
-  .row.person{grid-template-columns:170px minmax(0,1fr) 150px 150px 32px}
+  .row.person{grid-template-columns:160px 140px minmax(0,1fr) 140px 140px 32px}
+  select.av-away{color:var(--red)} select.av-home,select.av-site{color:var(--green)}
   .row.person input.away-now{border-color:var(--orange)}
   @media(max-width:680px){.row.person{grid-template-columns:1fr 1fr 32px}.row.person .f-reason{grid-column:1/3}}
   .row.head{font-size:12px;color:var(--sub);font-weight:500;margin-bottom:2px;padding-top:0;padding-bottom:0}
@@ -179,6 +180,7 @@
   .cal-day .cnt{background:var(--accent);color:var(--on-accent);border-radius:10px;font-size:11px;padding:0 7px;white-space:nowrap}
   .cal-day .cnt.late{background:var(--red)}
   .cal-day .away{font-size:11px;color:var(--orange);white-space:nowrap}
+  .cal-day .avail{font-size:11px;color:var(--sub);white-space:nowrap}
   @media(max-width:680px){.cal-day{min-height:48px;padding:3px}.cal-day .cnt{padding:0 4px}.cal-day .away{display:none}}
   .cal-list{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
   .cal-list h3{font-size:15px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
@@ -264,7 +266,7 @@
       </div>
       <div class="fold-body">
         <p class="empty" style="margin:-4px 0 8px">אתר לקוח, מחלה, חופשה</p>
-        <div class="row person head"><div>שם</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
+        <div class="row person head"><div>שם</div><div>זמינות</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
         <div id="unavail"></div>
         <button class="add" onclick="addPerson()">+ הוסף</button>
       </div>
@@ -329,7 +331,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "5.2";
+const VERSION = "5.3";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -342,6 +344,9 @@ const BUCKET_ICONS = { "שירות באתר הלקוח": "🚗", "התקנות �
   "טיפולי תחזוקה מונעת PM": "🔧", "משימות כללי": "📌" };
 const icon = b => BUCKET_ICONS[b] || "📂";
 const FUTURE = "עתידי";  // ערך תאריך: עתידי, ללא מועד מוגדר (זהה ל-tasks.py)
+// סוג זמינות (זהה ל-tasks.py): רק "away" נחשב לא זמין
+const AVAIL = { away: ["לא זמין", "⛔"], home: ["זמין מהבית", "🏠"], site: ["באתר לקוח", "🚗"] };
+const guessAvail = reason => /בית/.test(reason || "") ? "home" : /לקוח/.test(reason || "") ? "site" : "away";
 const todayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });  // YYYY-MM-DD בשעון ישראל
 const HEADER = `# ---------------------------------------------------------------
 # המשימות שפורסמו. נוצר אוטומטית מממשק הניהול - הלוח המלא נמצא ב-board.json.
@@ -431,7 +436,8 @@ function parseTasksTxt(text) {
       const date = s => /^\d{4}-\d{2}-\d{2}$/.test(s || "") ? s : "";
       let from = date(rest[1]), to = date(rest[2]);
       if (from && to && from > to) [from, to] = [to, from];  // טווח הפוך - מתקנים
-      unavailable.push({ name: (k < 0 ? line : line.slice(0, k)).trim(), reason: rest[0] || "", from, to });
+      const reason = rest[0] || "", type = rest[3] in AVAIL ? rest[3] : guessAvail(reason);
+      unavailable.push({ name: (k < 0 ? line : line.slice(0, k)).trim(), reason, from, to, type });
     } else if (section === "t" && line.startsWith("[") && line.endsWith("]")) bucket = line.slice(1, -1).trim();
     else if (section === "t") {
       const p = line.split("|").map(s => s.trim()); while (p.length < 10) p.push("");
@@ -451,8 +457,8 @@ function toTasksTxt(d) {
   L.push("לא זמינים:");
   d.unavailable.forEach(p => {
     const n = clean(p.name).replace(/:/g, " "); if (!n) return;
-    if (p.from || p.to) L.push(`${n}: ${clean(p.reason)} | ${p.from || ""} | ${p.to || ""}`);
-    else L.push(p.reason ? `${n}: ${clean(p.reason)}` : n);
+    const type = p.type in AVAIL ? p.type : guessAvail(p.reason);
+    L.push(`${n}: ${clean(p.reason)} | ${p.from || ""} | ${p.to || ""} | ${type}`);
   });
   L.push("", "משימות:");
   for (const b of orderedBuckets(d.tasks)) {
@@ -472,7 +478,7 @@ function cardBlocks(sel) {
   const d = parseTasksTxt(toTasksTxt(sel));  // בונים מהקובץ עצמו, כדי שהתצוגה תהיה זהה למה שיישלח
   const today = todayISO();
   // מי לא זמין היום: בלי תאריכים = היום; אחרת רק אם היום בטווח
-  const away = new Set(d.unavailable.filter(p => (!p.from || p.from <= today) && (!p.to || p.to >= today)).map(p => p.name));
+  const away = new Set(d.unavailable.filter(p => p.type === "away" && (!p.from || p.from <= today) && (!p.to || p.to >= today)).map(p => p.name));
   // משימה עתידית (תאריך אחרי היום, או "עתידי") - משמש רק לאזהרת "לא זמין היום"
   const isFuture = t => t.due === FUTURE || (!!t.due && t.due > today);
   const rank = t => PRIORITIES[t.priority][0];
@@ -502,7 +508,8 @@ function cardBlocks(sel) {
     d.unavailable.forEach(p => {
       const when = p.from && p.to && p.from !== p.to ? `${dm(p.from)}–${dm(p.to)}`
         : p.from || p.to ? (p.from ? "" : "עד ") + dm(p.from || p.to) : "";
-      line(`• ${p.name}${p.reason ? ": " + p.reason : ""}${when ? ` (${when})` : ""}`);
+      const [label, ic] = AVAIL[p.type];
+      line(`• ${p.name} – ${ic} ${label}${p.reason && p.reason !== label ? ": " + p.reason : ""}${when ? ` (${when})` : ""}`);
     });
   }
   // שורת עדיפות עם "רמזור"
@@ -642,6 +649,11 @@ function renderCalendar() {
   const byDay = {};
   tasks.forEach(t => { if (t.due && t.due !== FUTURE) (byDay[t.due] = byDay[t.due] || []).push(t); });
   const undated = tasks.filter(t => !t.due || t.due === FUTURE).length;
+  const awayCnt = aw => {  // ⛔ לא זמינים | 🏠 מהבית | 🚗 באתר לקוח
+    const c = k => aw.filter(p => (p.type || guessAvail(p.reason)) === k).length, a = c("away"), h = c("home"), s = c("site");
+    return (a ? `<span class="away">${a} ${a === 1 ? "לא זמין" : "לא זמינים"}</span>` : "")
+      + (h || s ? `<span class="avail">${[h ? `🏠 ${h}` : "", s ? `🚗 ${s}` : ""].filter(Boolean).join(" ")}</span>` : "");
+  };
   const awayOn = day => b.unavailable.filter(p => {
     let f = p.from, to = p.to; if (f && to && f > to) [f, to] = [to, f];
     return f || to ? (!f || f <= day) && (!to || to >= day) : day === today;
@@ -658,7 +670,7 @@ function renderCalendar() {
     cells += `<div class="cal-day ${iso.slice(0, 7) !== calMonth ? "out" : ""} ${iso === today ? "today" : ""} ${iso === calSel ? "sel" : ""}"
       onclick="calPick('${iso}')" title="${isoToDMY(iso)}"><span class="n">${+iso.slice(8)}</span>
       ${list.length ? `<span class="cnt ${late ? "late" : ""}">${list.length} ${tasksWord(list.length)}</span>` : ""}
-      ${aw.length ? `<span class="away">${aw.length} ${aw.length === 1 ? "לא זמין" : "לא זמינים"}</span>` : ""}</div>`;
+      ${awayCnt(aw)}</div>`;
   }
   let detail = "";
   if (calSel) {
@@ -667,11 +679,12 @@ function renderCalendar() {
       <div class="meta">${[icon(t.bucket) + " " + t.bucket, "👤 " + (t.owner || "ללא אחראי"),
         `${PRI_ICON[t.priority]} ${t.priority}`, t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : ""]
         .filter(Boolean).map(esc).join(" · ")}</div></div>`).join("");
-    const awayTxt = aw.map(p => `<div class="cal-item meta">🙋 ${esc(p.name)}${p.reason ? ": " + esc(p.reason) : ""}</div>`).join("");
+    const awayTxt = aw.map(p => { const [label, ic] = AVAIL[p.type || guessAvail(p.reason)];
+      return `<div class="cal-item meta">${ic} ${esc(p.name)} – ${label}${p.reason && p.reason !== label ? ": " + esc(p.reason) : ""}</div>`; }).join("");
     detail = `<div class="cal-list"><h3>${isoToDMY(calSel)}
         ${list.length ? `<button type="button" class="ghost" style="color:var(--accent)" onclick="filterDay('${calSel}')">הצג בלוח המשימות ←</button>` : ""}</h3>
       ${items || `<div class="empty">אין משימות ביום הזה.</div>`}
-      ${aw.length ? `<div class="empty" style="margin-top:8px">לא זמינים:</div>${awayTxt}` : ""}</div>`;
+      ${aw.length ? `<div class="empty" style="margin-top:8px">סטטוס זמינות:</div>${awayTxt}` : ""}</div>`;
   }
   $("calView").innerHTML = `<div class="cal-head">
       <button type="button" onclick="calShift(-1)" title="חודש קודם">→</button>
@@ -785,8 +798,11 @@ function addTask(k, t = {}, focus = true) {
 }
 function addPerson(p = {}, focus = true) {
   const el = document.createElement("div"); el.className = "row person";
+  const type = p.type in AVAIL ? p.type : guessAvail(p.reason);
   el.innerHTML = `${peopleSelect("name", p.name, "בחר…")}
-    <input class="f-reason" data-k="reason" value="${esc(p.reason)}" placeholder="אתר לקוח / מחלה / חופשה">
+    <select data-k="type" class="av-${type}" title="סוג זמינות">${Object.entries(AVAIL).map(([k, [label, ic]]) =>
+      `<option value="${k}" ${k === type ? "selected" : ""}>${ic} ${label}</option>`).join("")}</select>
+    <input class="f-reason" data-k="reason" value="${esc(p.reason)}" placeholder="חופש / מחלה / כנס / שם לקוח…">
     ${dateField("from", p.from, "מתאריך (ריק = היום)")}
     ${dateField("to", p.to, "עד תאריך (אופציונלי)")}
     <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
@@ -837,6 +853,7 @@ document.addEventListener("input", e => {
   }
   if (e.target.dataset.k === "priority") e.target.className = "p-" + e.target.value;
   if (e.target.dataset.k === "status") e.target.className = "f-status s-" + e.target.value;
+  if (e.target.dataset.k === "type") e.target.className = "av-" + e.target.value;
   if (e.target.dataset.k === "dueFuture") {
     const cell = e.target.closest(".due-cell");
     cell.classList.toggle("is-future", e.target.checked);
