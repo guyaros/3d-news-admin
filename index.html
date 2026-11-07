@@ -59,7 +59,14 @@
   .bucket-head label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);cursor:pointer}
   /* rows */
   .row{display:grid;gap:8px;align-items:center;margin-bottom:6px;padding:4px;border-radius:9px}
-  .row.task{grid-template-columns:18px 22px minmax(0,.55fr) minmax(0,1fr) minmax(0,.6fr) 190px 128px 92px 136px 30px}
+  .row.task{grid-template-columns:18px 22px minmax(0,.55fr) minmax(0,1fr) minmax(0,.6fr) 190px 128px 92px 136px 30px;align-items:start}
+  .row.task > .drag,.row.task > .f-pub{margin-top:9px}
+  textarea.grow{resize:none;overflow:hidden;line-height:1.45;min-height:38px;display:block}
+  /* שורה שנייה בכל משימה: ציוד ומספר סידורי, מתחת ללקוח ולמשימה */
+  .row.task .f-equip{grid-row:2;grid-column:3}
+  .row.task .f-serial{grid-row:2;grid-column:4;max-width:260px}
+  .row.task .f-equip,.row.task .f-serial{font-size:13px;padding:5px 8px;margin-top:-2px}
+  .row.task.head .f-equip{display:none}
   .due-cell{display:flex;align-items:center;gap:6px;min-width:0}
   .due-cell input[type=date]{flex:1;min-width:0}
   .due-cell label{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--sub);cursor:pointer;white-space:nowrap}
@@ -86,6 +93,7 @@
     .row.task > .drag,.row.task > .f-pub,.row.task > .ghost{flex:0 0 auto}
     .row.task > .f-customer{flex:1 1 50%}
     .row.task > .f-title,.row.task > .f-note{flex:1 1 100%}
+    .row.task > .f-equip,.row.task > .f-serial{grid-row:auto;grid-column:auto}
     .row.head.task-head{display:none}
   }
   select.p-דחוף{color:var(--red)!important;font-weight:700}
@@ -216,7 +224,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "2.3";
+const VERSION = "2.4";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -235,7 +243,7 @@ const HEADER = `# --------------------------------------------------------------
 #
 # הודעה:     (אופציונלי) שורות טקסט חופשי, כל אחת מתחילה ב- >
 # לא זמינים: שורה לכל אדם, בפורמט   שם: סיבה
-# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח | תאריך (YYYY-MM-DD או "עתידי") | סטטוס
+# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח | תאריך (YYYY-MM-DD או "עתידי") | סטטוס | ציוד/דגם | מס' סידורי
 # סדר המשימות בקובץ הוא הסדר בכרטיס.
 # ---------------------------------------------------------------
 `;
@@ -289,10 +297,10 @@ function parseTasksTxt(text) {
       unavailable.push({ name: (k < 0 ? line : line.slice(0, k)).trim(), reason: k < 0 ? "" : line.slice(k + 1).trim() });
     } else if (section === "t" && line.startsWith("[") && line.endsWith("]")) bucket = line.slice(1, -1).trim();
     else if (section === "t") {
-      const p = line.split("|").map(s => s.trim()); while (p.length < 7) p.push("");
+      const p = line.split("|").map(s => s.trim()); while (p.length < 9) p.push("");
       const priority = ALIASES[p[0]] || p[0];
       if (PRIORITIES[priority] && p[1]) tasks.push({ priority, title: p[1], owner: p[2], note: p[3], customer: p[4],
-        due: p[5] === FUTURE || /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", status: p[6] in STATUSES ? p[6] : "", bucket, publish: false });
+        due: p[5] === FUTURE || /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", status: p[6] in STATUSES ? p[6] : "", equip: p[7], serial: p[8], bucket, publish: false });
     }
   });
   while (message.length && !message[message.length - 1]) message.pop();
@@ -308,7 +316,7 @@ function toTasksTxt(d) {
   L.push("", "משימות:");
   for (const b of orderedBuckets(d.tasks)) {
     L.push(`[${clean(b)}]`);
-    d.tasks.filter(t => t.bucket === b).forEach(t => L.push([t.priority, t.title, t.owner, t.note, t.customer, t.due, t.status].map(clean).join(" | ")));
+    d.tasks.filter(t => t.bucket === b).forEach(t => L.push([t.priority, t.title, t.owner, t.note, t.customer, t.due, t.status, t.equip, t.serial].map(clean).join(" | ")));
   }
   return L.join("\n") + "\n";
 }
@@ -365,7 +373,8 @@ function cardBlocks(sel) {
     }
     const st = t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : "";
     B.push({ text: `${i}. ${prefix}${PRIORITIES[t.priority][1]}${t.customer ? t.customer + " – " : ""}${t.title}`, weight: "Bolder", small: true });
-    B.push({ text: [`👤 ${who}`, st, due, t.note].filter(Boolean).join(" · "), color: c });
+    const eq = t.equip ? `🖨️ ${t.equip}${t.serial ? ` (S/N ${t.serial})` : ""}` : t.serial ? `🖨️ S/N ${t.serial}` : "";
+    B.push({ text: [`👤 ${who}`, st, due, eq, t.note].filter(Boolean).join(" · "), color: c });
   };
   let i = 0;
   for (const b of new Set(d.tasks.filter(t => !isFuture(t)).map(t => t.bucket))) {  // סדר ה-buckets לפי הקובץ
@@ -433,9 +442,11 @@ function addTask(k, t = {}, focus = true) {
   const el = document.createElement("div"); el.className = "row task";
   el.innerHTML = `<span class="drag" title="גרירה לשינוי סדר או להעברה ל-bucket אחר">⋮⋮</span>
     <input type="checkbox" class="f-pub" data-k="publish" title="לפרסום" ${pub ? "checked" : ""}>
-    <input class="f-customer" data-k="customer" value="${esc(t.customer)}" placeholder="שם לקוח">
-    <input class="f-title" data-k="title" value="${esc(t.title)}" placeholder="מה צריך לעשות">
-    <input class="f-note" data-k="note" value="${esc(t.note)}" placeholder="שעה, פרטים…">
+    <textarea class="f-customer grow" rows="1" data-k="customer" placeholder="שם לקוח">${esc(t.customer)}</textarea>
+    <textarea class="f-title grow" rows="1" data-k="title" placeholder="מה צריך לעשות">${esc(t.title)}</textarea>
+    <textarea class="f-note grow" rows="1" data-k="note" placeholder="שעה, פרטים…">${esc(t.note)}</textarea>
+    <input class="f-equip" data-k="equip" value="${esc(t.equip)}" placeholder="🖨️ סוג ציוד / דגם">
+    <input class="f-serial" data-k="serial" value="${esc(t.serial)}" placeholder="מס' סידורי (S/N)" dir="ltr">
     <div class="due-cell ${t.due === FUTURE ? "is-future" : ""}">
       <input class="f-due" type="date" data-k="due" value="${t.due === FUTURE ? "" : esc(t.due)}" title="תאריך לביצוע">
       <span class="tbd">ללא מועד</span>
@@ -448,6 +459,7 @@ function addTask(k, t = {}, focus = true) {
     ${peopleSelect("owner", t.owner, "— ללא אחראי —")}
     <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
   bucketEl.querySelector(".rows").append(el);
+  el.querySelectorAll("textarea.grow").forEach(autosize);
   if (focus) { el.querySelector(".f-title").focus(); changed(); }
 }
 function addPerson(p = {}, focus = true) {
@@ -485,6 +497,15 @@ function updateSaveBtn() {
   if (!$("pubBtn").disabled) b.disabled = !dirty;
 }
 function changed() { clearTimeout(timer); timer = setTimeout(renderPreview, 120); setDirty(true); }
+// שדות טקסט שגדלים לגובה לפי התוכן, כדי שכל הטקסט ייראה
+function autosize(t) { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; }
+document.addEventListener("input", e => { if (e.target.matches("textarea.grow")) autosize(e.target); });
+document.addEventListener("keydown", e => {  // שדה של שורה אחת בקובץ: Enter לא יוצר שורה חדשה
+  if (e.key === "Enter" && e.target.matches("textarea.grow")) e.preventDefault();
+});
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => document.querySelectorAll("textarea.grow").forEach(autosize), 150); });
 document.addEventListener("input", e => {
   if (!e.target.closest("#app") || e.target.closest(".manage")) return;
   if (e.target.classList.contains("pub-all")) {
