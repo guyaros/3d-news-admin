@@ -94,11 +94,11 @@
   .row.task .f-equip,.row.task .f-serial,.row.task .f-ticket{color:var(--sub)}
   textarea.grow{resize:none;overflow:hidden;line-height:1.35;min-height:26px;display:block}
   .due-cell{display:flex;align-items:center;gap:6px;min-width:0}
-  .due-cell input[type=date]{flex:1;min-width:0}
+  .due-cell .dfield{flex:1;min-width:0}
   .due-cell label{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--sub);cursor:pointer;white-space:nowrap}
   .due-cell input[type=checkbox]{width:15px;height:15px}
   .due-cell .tbd{display:none;flex:1;padding:4px 7px;border:1px dashed var(--accent);border-radius:8px;color:var(--accent);font-size:13px;white-space:nowrap}
-  .due-cell.is-future input[type=date]{display:none}
+  .due-cell.is-future .dfield{display:none}
   .due-cell.is-future .tbd{display:block}
   .drag{cursor:grab;color:var(--sub);user-select:none;text-align:center;font-size:16px;line-height:1}
   .drag:active{cursor:grabbing}
@@ -107,7 +107,13 @@
   .row.task.done .f-title,.row.task.done .f-customer{text-decoration:line-through;color:var(--sub)}
   select.s-הושלם{color:var(--green)!important;font-weight:700}
   select.s-בביצוע{color:var(--accent)!important}
-  input.f-due.late{color:var(--red);font-weight:700;border-color:var(--red)}
+  /* שדה תאריך DD/MM/YYYY: טקסט + כפתור לוח שנה (שדה התאריך של הדפדפן מוסתר) */
+  .dfield{position:relative;display:flex;align-items:center;min-width:0}
+  .dfield .d-text{flex:1;min-width:0;padding-inline-end:28px!important;direction:ltr;text-align:right}
+  .dfield .d-btn{position:absolute;inset-inline-end:3px;border:none;background:none;padding:2px 4px;font-size:13px;cursor:pointer}
+  .dfield .d-iso{position:absolute;inset-inline-end:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0}
+  .dfield.late .d-text{color:var(--red);font-weight:700;border-color:var(--red)}
+  .dfield.bad .d-text{border-color:var(--red);background:var(--red-soft)}
   .row.task.off{background:var(--muted-row)}
   #msgPanel.off textarea{background:var(--muted-row);color:var(--sub)}
   .row.task.off input:not([type=checkbox]),.row.task.off select{color:var(--sub)}
@@ -259,7 +265,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "4.1";
+const VERSION = "4.2";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -345,7 +351,9 @@ function parseTasksTxt(text) {
       const k = line.indexOf(":");
       const rest = (k < 0 ? "" : line.slice(k + 1)).split("|").map(s => s.trim());
       const date = s => /^\d{4}-\d{2}-\d{2}$/.test(s || "") ? s : "";
-      unavailable.push({ name: (k < 0 ? line : line.slice(0, k)).trim(), reason: rest[0] || "", from: date(rest[1]), to: date(rest[2]) });
+      let from = date(rest[1]), to = date(rest[2]);
+      if (from && to && from > to) [from, to] = [to, from];  // טווח הפוך - מתקנים
+      unavailable.push({ name: (k < 0 ? line : line.slice(0, k)).trim(), reason: rest[0] || "", from, to });
     } else if (section === "t" && line.startsWith("[") && line.endsWith("]")) bucket = line.slice(1, -1).trim();
     else if (section === "t") {
       const p = line.split("|").map(s => s.trim()); while (p.length < 10) p.push("");
@@ -474,7 +482,7 @@ function renderPreview() {
     all.disabled = !boxes.length;
     el.querySelector(".count").textContent = boxes.length ? `${on}/${boxes.length} לפרסום` : "ריק";
     boxes.forEach(x => x.closest(".row").classList.toggle("off", !x.checked));
-    el.querySelectorAll(".f-due").forEach(x => x.classList.toggle("late", !!x.value && x.value < todayISO()));
+    el.querySelectorAll(".f-due").forEach(x => x.closest(".dfield").classList.toggle("late", !!x.value && x.value < todayISO()));
     el.querySelectorAll(".f-status").forEach(x => x.closest(".row").classList.toggle("done", x.value === "הושלם"));
   });
   if (!hasContent(d)) { $("preview").innerHTML = `<span class="empty">${all.tasks.length || all.message.trim()
@@ -484,6 +492,40 @@ function renderPreview() {
 }
 
 // ---------- עריכה ----------
+// ---------- שדה תאריך בפורמט DD/MM/YYYY ----------
+// הערך הנשמר (data-k) הוא YYYY-MM-DD בשדה מוסתר; המשתמש רואה ומקליד DD/MM/YYYY
+const isoToDMY = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso || "") ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "";
+function dmyToIso(txt) {
+  const m = String(txt).trim().match(/^(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2}|\d{4}))?$/);
+  if (!m) return null;
+  const d = +m[1], mo = +m[2], y = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : +todayISO().slice(0, 4);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;  // תאריך לא קיים (למשל 31/02)
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+function dateField(key, iso, title, cls = "") {
+  return `<span class="dfield" title="${title}"><input type="text" class="d-text" value="${isoToDMY(iso)}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">` +
+    `<input type="date" class="d-iso ${cls}" data-k="${key}" value="${esc(iso)}" tabindex="-1" aria-hidden="true">` +
+    `<button type="button" class="d-btn" title="בחירה מלוח שנה" onclick="openPicker(this)">📅</button></span>`;
+}
+function openPicker(btn) {
+  const iso = btn.parentElement.querySelector(".d-iso");
+  try { iso.showPicker(); } catch { iso.focus(); iso.click(); }
+}
+document.addEventListener("input", e => {
+  const f = e.target.closest(".dfield"); if (!f) return;
+  const text = f.querySelector(".d-text"), iso = f.querySelector(".d-iso");
+  if (e.target === iso) { text.value = isoToDMY(iso.value); f.classList.remove("bad"); }  // נבחר בלוח השנה
+  else if (e.target === text) {
+    const v = text.value.trim(), parsed = v ? dmyToIso(v) : "";
+    f.classList.toggle("bad", parsed === null);
+    if (parsed !== null) iso.value = parsed;
+  }
+}, true);
+document.addEventListener("change", e => {  // ביציאה מהשדה: מציגים בפורמט מלא (8/11 -> 08/11/2026)
+  const f = e.target.closest(".dfield");
+  if (f && e.target.classList.contains("d-text") && !f.classList.contains("bad")) e.target.value = isoToDMY(f.querySelector(".d-iso").value);
+});
 function peopleSelect(key, value, emptyLabel) {
   const names = [...team]; if (value && !names.includes(value)) names.push(value);
   return `<select data-k="${key}"><option value="">${emptyLabel}</option>${names.map(n =>
@@ -535,7 +577,7 @@ function addTask(k, t = {}, focus = true) {
     </div>
     <div class="t-meta">
       <div class="due-cell ${t.due === FUTURE ? "is-future" : ""}">
-        <input class="f-due" type="date" data-k="due" value="${t.due === FUTURE ? "" : esc(t.due)}" title="תאריך לביצוע">
+        ${dateField("due", t.due === FUTURE ? "" : t.due, "תאריך לביצוע", "f-due")}
         <span class="tbd">ללא מועד</span>
         <label title="משימה עתידית שעוד לא נקבע לה מועד"><input type="checkbox" data-k="dueFuture" ${t.due === FUTURE ? "checked" : ""}>עתידי</label>
       </div>
@@ -554,8 +596,8 @@ function addPerson(p = {}, focus = true) {
   const el = document.createElement("div"); el.className = "row person";
   el.innerHTML = `${peopleSelect("name", p.name, "בחר…")}
     <input class="f-reason" data-k="reason" value="${esc(p.reason)}" placeholder="אתר לקוח / מחלה / חופשה">
-    <input type="date" data-k="from" value="${esc(p.from)}" title="מתאריך (ריק = היום)">
-    <input type="date" data-k="to" value="${esc(p.to)}" title="עד תאריך (אופציונלי)">
+    ${dateField("from", p.from, "מתאריך (ריק = היום)")}
+    ${dateField("to", p.to, "עד תאריך (אופציונלי)")}
     <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
   $("unavail").append(el);
   if (focus) { el.querySelector("select").focus(); changed(); }
@@ -607,7 +649,7 @@ document.addEventListener("input", e => {
   if (e.target.dataset.k === "dueFuture") {
     const cell = e.target.closest(".due-cell");
     cell.classList.toggle("is-future", e.target.checked);
-    if (e.target.checked) cell.querySelector(".f-due").value = "";
+    if (e.target.checked) { cell.querySelector(".f-due").value = ""; cell.querySelector(".d-text").value = ""; }
   }
   changed();
 });
