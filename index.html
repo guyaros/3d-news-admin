@@ -234,28 +234,6 @@
 <!-- ממשק -->
 <div class="wrap hidden" id="app">
   <div>
-    <div class="panel foldable" id="availPanel" data-fold="__availability__">
-      <div class="bucket-head">
-        <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">סטטוס זמינות אנשי צוות <span class="count" id="cntU">0</span></h2>
-      </div>
-      <div class="fold-body">
-        <p class="empty" style="margin:-4px 0 8px">אתר לקוח, מחלה, חופשה</p>
-        <div class="row person head"><div>שם</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
-        <div id="unavail"></div>
-        <button class="add" onclick="addPerson()">+ הוסף</button>
-      </div>
-    </div>
-
-    <div class="panel foldable" id="msgPanel" data-fold="__message__">
-      <div class="bucket-head">
-        <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">📝 הודעה חופשית</h2>
-        <label title="לכלול את ההודעה בכרטיס"><input type="checkbox" id="msgPub"> כלול בפרסום</label>
-      </div>
-      <div class="fold-body">
-        <textarea id="msgText" class="auto-h" rows="2" placeholder="הודעה לצוות: עדכונים, תזכורות, הנחיות…"></textarea>
-      </div>
-    </div>
-
     <div class="panel toolbar" id="toolbar">
       <div class="view-tabs">
         <button type="button" class="tab on" data-view="board" onclick="setView('board')">📋 לוח משימות</button>
@@ -277,6 +255,28 @@
         </select>
         <span id="fDay" class="chip hidden" onclick="clearDay()" title="הסרת סינון היום"></span>
         <button type="button" class="ghost hidden" id="fClear" onclick="clearFilters()">נקה סינון</button>
+      </div>
+    </div>
+
+    <div class="panel foldable" id="availPanel" data-fold="__availability__">
+      <div class="bucket-head">
+        <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">סטטוס זמינות אנשי צוות <span class="count" id="cntU">0</span></h2>
+      </div>
+      <div class="fold-body">
+        <p class="empty" style="margin:-4px 0 8px">אתר לקוח, מחלה, חופשה</p>
+        <div class="row person head"><div>שם</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
+        <div id="unavail"></div>
+        <button class="add" onclick="addPerson()">+ הוסף</button>
+      </div>
+    </div>
+
+    <div class="panel foldable" id="msgPanel" data-fold="__message__">
+      <div class="bucket-head">
+        <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">📝 הודעה חופשית</h2>
+        <label title="לכלול את ההודעה בכרטיס"><input type="checkbox" id="msgPub"> כלול בפרסום</label>
+      </div>
+      <div class="fold-body">
+        <textarea id="msgText" class="auto-h" rows="2" placeholder="הודעה לצוות: עדכונים, תזכורות, הנחיות…"></textarea>
       </div>
     </div>
 
@@ -329,7 +329,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "5.1";
+const VERSION = "5.2";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
