@@ -25,7 +25,7 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Heebo,"Segoe UI",Arial,sans-serif}
   header{background:var(--card);border-bottom:1px solid var(--line)}
-  .top{max-width:1320px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}
+  .top{max-width:1320px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
   .logo{width:36px;height:36px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
   .top h1{font-size:18px;margin:0;font-weight:700}
   .top .date{color:var(--sub);font-size:13px}
@@ -35,8 +35,8 @@
   .wrap{max-width:1440px;margin:0 auto;padding:20px 16px 110px;display:grid;
         grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:20px;align-items:start}
   @media(max-width:1100px){.wrap{grid-template-columns:1fr}}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
-  .panel h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .panel h2{font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
   .count{background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:0 9px;font-size:12px;font-weight:700}
   input,select,textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font:inherit;
         background:var(--card);color:var(--text)}
@@ -54,24 +54,31 @@
   #saveBtn.need{background:var(--orange);color:#fff;border-color:var(--orange);font-weight:700}
   #saveBtn.saved{background:var(--green-soft);color:var(--green);border-color:var(--green-soft);opacity:1}
   /* bucket */
-  .bucket-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .bucket-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  /* bucket מקופל: לוחצים על הכותרת */
+  .bucket-head h2{cursor:pointer;user-select:none}
+  .bucket-head h2::before{content:"▾";color:var(--sub);font-size:13px;width:12px;display:inline-block}
+  .bucket.collapsed .bucket-head h2::before{content:"◂"}
+  .bucket.collapsed .rows,.bucket.collapsed .add{display:none}
+  .bucket.collapsed .bucket-head{margin-bottom:0}
   .bucket-head h2{margin:0;flex:1}
   .bucket-head label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);cursor:pointer}
   /* rows */
   .row{display:grid;gap:8px;align-items:center;margin-bottom:6px;padding:4px;border-radius:9px}
   /* משימה = כרטיס קומפקטי: טקסטים אחד מתחת לשני, ולצידם טור צר של תאריך/סטטוס/עדיפות/אחראי */
-  .row.task{grid-template-columns:16px 20px minmax(0,1fr) 232px 26px;align-items:start;gap:8px;
-            border:1px solid var(--line);padding:8px;margin-bottom:8px}
+  .row.task{grid-template-columns:16px 20px minmax(0,1fr) 224px 24px;align-items:start;gap:6px;
+            border:1px solid var(--line);padding:5px 6px;margin-bottom:5px}
   .row.task > .drag,.row.task > .f-pub{margin-top:6px}
   .row.task > .ghost{padding:4px 6px}
-  .t-main{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .t-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .t-top{display:grid;grid-template-columns:minmax(0,.42fr) minmax(0,1fr);gap:3px}
   .t-eq{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,.7fr);gap:4px}
-  .t-meta{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .t-meta{display:grid;grid-template-columns:1fr 1fr;gap:3px}
   .t-meta .due-cell,.t-meta .f-owner{grid-column:1/-1}
-  .row.task input,.row.task select,.row.task textarea{font-size:13px;padding:4px 7px;border-radius:6px}
+  .row.task input,.row.task select,.row.task textarea{font-size:13px;padding:3px 6px;border-radius:6px}
   .row.task .f-customer{font-weight:700}
   .row.task .f-equip,.row.task .f-serial,.row.task .f-ticket{color:var(--sub)}
-  textarea.grow{resize:none;overflow:hidden;line-height:1.4;min-height:28px;display:block}
+  textarea.grow{resize:none;overflow:hidden;line-height:1.35;min-height:26px;display:block}
   .due-cell{display:flex;align-items:center;gap:6px;min-width:0}
   .due-cell input[type=date]{flex:1;min-width:0}
   .due-cell label{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--sub);cursor:pointer;white-space:nowrap}
@@ -183,7 +190,7 @@
         <h2>📝 הודעה חופשית</h2>
         <label title="לכלול את ההודעה בכרטיס"><input type="checkbox" id="msgPub"> כלול בפרסום</label>
       </div>
-      <textarea id="msgText" rows="3" placeholder="הודעה לצוות: עדכונים, תזכורות, הנחיות…"></textarea>
+      <textarea id="msgText" rows="2" placeholder="הודעה לצוות: עדכונים, תזכורות, הנחיות…"></textarea>
     </div>
 
     <div id="buckets"></div>
@@ -233,7 +240,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "3.3";
+const VERSION = "3.4";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -451,12 +458,22 @@ function peopleSelect(key, value, emptyLabel) {
   return `<select data-k="${key}"><option value="">${emptyLabel}</option>${names.map(n =>
     `<option value="${esc(n)}" ${n === value ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
 }
+// קיפול buckets: הבחירה נשמרת בדפדפן; bucket ריק מקופל כברירת מחדל
+const FOLD_KEY = "3dnews-admin-folded";
+function foldState() { try { return JSON.parse(localStorage.getItem(FOLD_KEY)) || {}; } catch { return {}; } }
+function isCollapsed(b, tasks) { const st = foldState(); return b in st ? st[b] : !tasks.some(t => t.bucket === b); }
+function toggleBucket(h) {
+  const el = h.closest(".bucket"), st = foldState();
+  st[el.dataset.bucket] = el.classList.toggle("collapsed");
+  try { localStorage.setItem(FOLD_KEY, JSON.stringify(st)); } catch {}
+  if (!st[el.dataset.bucket]) el.querySelectorAll("textarea.grow").forEach(autosize);
+}
 function renderBuckets(tasks) {
   const list = [...buckets, ...[...new Set(tasks.map(t => t.bucket))].filter(b => !buckets.includes(b))];
   $("buckets").innerHTML = list.map((b, k) => `
-    <div class="panel bucket" data-bucket="${esc(b)}">
+    <div class="panel bucket ${isCollapsed(b, tasks) ? "collapsed" : ""}" data-bucket="${esc(b)}">
       <div class="bucket-head">
-        <h2>${icon(b)} ${esc(b)} <span class="count"></span></h2>
+        <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">${icon(b)} ${esc(b)} <span class="count"></span></h2>
         <label title="סמן / נקה את כל המשימות ב-bucket"><input type="checkbox" class="pub-all"> הכל לפרסום</label>
       </div>
       <div class="rows"></div>
@@ -474,8 +491,10 @@ function addTask(k, t = {}, focus = true) {
   el.innerHTML = `<span class="drag" title="גרירה לשינוי סדר או להעברה ל-bucket אחר">⋮⋮</span>
     <input type="checkbox" class="f-pub" data-k="publish" title="לפרסום" ${pub ? "checked" : ""}>
     <div class="t-main">
+      <div class="t-top">
       <textarea class="f-customer grow" rows="1" data-k="customer" placeholder="שם לקוח" title="שם לקוח">${esc(t.customer)}</textarea>
       <textarea class="f-title grow" rows="1" data-k="title" placeholder="משימה: מה צריך לעשות" title="משימה">${esc(t.title)}</textarea>
+      </div>
       <textarea class="f-note grow" rows="1" data-k="note" placeholder="הערות" title="הערות">${esc(t.note)}</textarea>
       <div class="t-eq">
         <input class="f-equip" data-k="equip" value="${esc(t.equip)}" placeholder="🖨️ סוג ציוד / דגם" title="סוג ציוד / דגם">
