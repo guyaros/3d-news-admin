@@ -231,7 +231,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "2.8";
+const VERSION = "2.9";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -356,7 +356,7 @@ function cardBlocks(sel) {
   // להיום: לפי עדיפות; בתוך אותה עדיפות נשמר הסדר שנקבע בלוח (מיון יציב)
   const current = d.tasks.filter(t => !isFuture(t)).sort((x, y) => rank(x) - rank(y));
   const summary = current.length ? [current.length === 1 ? "1 משימה" : `${current.length} משימות`] : [];
-  if (future.length) summary.push(future.length === 1 ? "1 עתידית" : `${future.length} עתידיות`);
+  if (future.length) summary.push(`${future.length} לביצוע`);
   const urgent = d.tasks.filter(t => t.priority === "דחוף").length;
   const noOwner = d.tasks.filter(t => !t.owner).length;
   if (urgent) summary.push(urgent === 1 ? "1 דחופה" : `${urgent} דחופות`);
@@ -403,7 +403,7 @@ function cardBlocks(sel) {
     current.filter(t => t.bucket === b).forEach(t => taskBlocks(++i, t));
   }
   if (future.length) {
-    B.push({ text: "📆 משימות עתידיות", weight: "Bolder", color: "Accent", sep: true });
+    B.push({ text: "📆 משימות לביצוע", weight: "Bolder", color: "Accent", sep: true });
     future.forEach(t => taskBlocks(++i, t, t.bucket ? icon(t.bucket) + " " : ""));
   }
   return B;
