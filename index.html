@@ -65,12 +65,12 @@
   .row.task > .drag,.row.task > .f-pub{margin-top:6px}
   .row.task > .ghost{padding:4px 6px}
   .t-main{display:flex;flex-direction:column;gap:4px;min-width:0}
-  .t-eq{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:4px}
+  .t-eq{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,.7fr);gap:4px}
   .t-meta{display:grid;grid-template-columns:1fr 1fr;gap:4px}
   .t-meta .due-cell,.t-meta .f-owner{grid-column:1/-1}
   .row.task input,.row.task select,.row.task textarea{font-size:13px;padding:4px 7px;border-radius:6px}
   .row.task .f-customer{font-weight:700}
-  .row.task .f-equip,.row.task .f-serial{color:var(--sub)}
+  .row.task .f-equip,.row.task .f-serial,.row.task .f-ticket{color:var(--sub)}
   textarea.grow{resize:none;overflow:hidden;line-height:1.4;min-height:28px;display:block}
   .due-cell{display:flex;align-items:center;gap:6px;min-width:0}
   .due-cell input[type=date]{flex:1;min-width:0}
@@ -231,7 +231,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "2.9";
+const VERSION = "3.0";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -250,7 +250,7 @@ const HEADER = `# --------------------------------------------------------------
 #
 # הודעה:     (אופציונלי) שורות טקסט חופשי, כל אחת מתחילה ב- >
 # לא זמינים: שורה לכל אדם, בפורמט   שם: סיבה
-# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח | תאריך (YYYY-MM-DD או "עתידי") | סטטוס | ציוד/דגם | מס' סידורי
+# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח | תאריך (YYYY-MM-DD או "עתידי") | סטטוס | ציוד/דגם | מס' סידורי | מס' קריאת שירות
 # סדר המשימות בקובץ הוא הסדר בכרטיס.
 # ---------------------------------------------------------------
 `;
@@ -307,10 +307,10 @@ function parseTasksTxt(text) {
       unavailable.push({ name: (k < 0 ? line : line.slice(0, k)).trim(), reason: rest[0] || "", from: date(rest[1]), to: date(rest[2]) });
     } else if (section === "t" && line.startsWith("[") && line.endsWith("]")) bucket = line.slice(1, -1).trim();
     else if (section === "t") {
-      const p = line.split("|").map(s => s.trim()); while (p.length < 9) p.push("");
+      const p = line.split("|").map(s => s.trim()); while (p.length < 10) p.push("");
       const priority = ALIASES[p[0]] || p[0];
       if (PRIORITIES[priority] && (p[1] || p[4])) tasks.push({ priority, title: p[1], owner: p[2], note: p[3], customer: p[4],
-        due: p[5] === FUTURE || /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", status: p[6] in STATUSES ? p[6] : "", equip: p[7], serial: p[8], bucket, publish: false });
+        due: p[5] === FUTURE || /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", status: p[6] in STATUSES ? p[6] : "", equip: p[7], serial: p[8], ticket: p[9], bucket, publish: false });
     }
   });
   while (message.length && !message[message.length - 1]) message.pop();
@@ -330,7 +330,7 @@ function toTasksTxt(d) {
   L.push("", "משימות:");
   for (const b of orderedBuckets(d.tasks)) {
     L.push(`[${clean(b)}]`);
-    d.tasks.filter(t => t.bucket === b).forEach(t => L.push([t.priority, t.title, t.owner, t.note, t.customer, t.due, t.status, t.equip, t.serial].map(clean).join(" | ")));
+    d.tasks.filter(t => t.bucket === b).forEach(t => L.push([t.priority, t.title, t.owner, t.note, t.customer, t.due, t.status, t.equip, t.serial, t.ticket].map(clean).join(" | ")));
   }
   return L.join("\n") + "\n";
 }
@@ -395,7 +395,8 @@ function cardBlocks(sel) {
     const st = t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : "";
     B.push({ text: `${i}. ${prefix}${PRIORITIES[t.priority][1]}${[t.customer, t.title].filter(Boolean).join(" – ")}`, weight: "Bolder", small: true });
     const eq = t.equip ? `🖨️ ${t.equip}${t.serial ? ` (S/N ${t.serial})` : ""}` : t.serial ? `🖨️ S/N ${t.serial}` : "";
-    B.push({ text: [`👤 ${who}`, st, due, eq, t.note].filter(Boolean).join(" · "), color: c });
+    const tk = t.ticket ? `🎫 קריאה ${t.ticket}` : "";
+    B.push({ text: [`👤 ${who}`, st, due, eq, tk, t.note].filter(Boolean).join(" · "), color: c });
   };
   let i = 0;
   for (const b of new Set(d.tasks.filter(t => !isFuture(t)).map(t => t.bucket))) {  // סדר ה-buckets לפי הקובץ
@@ -469,6 +470,7 @@ function addTask(k, t = {}, focus = true) {
       <div class="t-eq">
         <input class="f-equip" data-k="equip" value="${esc(t.equip)}" placeholder="🖨️ סוג ציוד / דגם" title="סוג ציוד / דגם">
         <input class="f-serial" data-k="serial" value="${esc(t.serial)}" placeholder="S/N" title="מספר סידורי" dir="ltr">
+        <input class="f-ticket" data-k="ticket" value="${esc(t.ticket)}" placeholder="🎫 מס' קריאה" title="מספר קריאת שירות" dir="ltr">
       </div>
     </div>
     <div class="t-meta">
@@ -508,7 +510,7 @@ function collect() {
       if (t.dueFuture) t.due = FUTURE;
       delete t.dueFuture;
       // משימה נשמרת אם מולא בה שדה טקסט כלשהו (לא רק "משימה")
-      if (t.title || t.customer || t.note || t.equip || t.serial) tasks.push({ bucket: b.dataset.bucket, ...t });
+      if (t.title || t.customer || t.note || t.equip || t.serial || t.ticket) tasks.push({ bucket: b.dataset.bucket, ...t });
     }));
   const unavailable = [...$("unavail").children].map(fields).filter(p => p.name);
   return { buckets, unavailable, tasks, message: $("msgText").value, messagePublish: $("msgPub").checked };
