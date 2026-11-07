@@ -265,7 +265,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "4.2";
+const VERSION = "4.3";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -728,9 +728,9 @@ async function watchRun(commitSha) {
     catch { return status("ok", `✓ נשמר. הכרטיס יגיע לערוץ תוך כדקה. <a href="${link}" target="_blank">מעקב</a>`); }
     const run = runs.workflow_runs[0], sec = Math.round((Date.now() - t0) / 1000);
     if (run && run.status === "completed") {
-      const at = new Date(run.updated_at).toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+      const at = run.updated_at ? ` (${new Date(run.updated_at).toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" })})` : "";
       return run.conclusion === "success"
-        ? status("ok", `✓ נשלח בהצלחה לערוץ ב-Teams (${at}). <a href="${run.html_url}" target="_blank">פרטים</a>`)
+        ? status("ok", `✓ נשלח בהצלחה לערוץ ב-Teams${at}. <a href="${run.html_url}" target="_blank">פרטים</a>`)
         : status("err", `השליחה נכשלה. <a href="${run.html_url}" target="_blank">פרטים ב-GitHub</a>`);
     }
     status("info", `✓ נשמר. ${run ? STAGE[run.status] || "שולח" : "ממתין להתחלת השליחה"}… (${sec} שניות)`);
