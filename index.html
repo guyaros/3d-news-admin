@@ -56,16 +56,16 @@
   .bucket-head label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);cursor:pointer}
   /* rows */
   .row{display:grid;gap:8px;align-items:center;margin-bottom:6px;padding:4px;border-radius:9px}
-  .row.task{grid-template-columns:24px 96px minmax(0,1fr) 140px minmax(0,.55fr) 32px}
+  .row.task{grid-template-columns:24px minmax(0,.55fr) minmax(0,1fr) minmax(0,.6fr) 92px 140px 32px}
   .row.task.off{background:var(--muted-row)}
   .row.task.off input:not([type=checkbox]),.row.task.off select{color:var(--sub)}
   .row.person{grid-template-columns:170px minmax(0,1fr) 32px}
   .row.head{font-size:12px;color:var(--sub);font-weight:500;margin-bottom:2px;padding-top:0;padding-bottom:0}
   @media(max-width:680px){
     .row.task{grid-template-columns:24px 1fr 1fr 32px;border:1px solid var(--line)}
-    .row.task .f-title{grid-column:2/-1;order:-1}
-    .row.task .f-pub{order:-2}
-    .row.task .f-note{grid-column:2/4}
+    .row.task .f-customer{grid-column:2/4}
+    .row.task .f-title{grid-column:2/-1}
+    .row.task .f-note{grid-column:2/-1}
     .row.head.task-head{display:none}
   }
   select.p-דחוף{color:var(--red)!important;font-weight:700}
@@ -134,7 +134,7 @@
   <div>
     <div class="panel">
       <h2>🤒 סטטוס זמינות אנשי צוות <span class="count" id="cntU">0</span></h2>
-      <p class="empty" style="margin:-6px 0 10px">מי לא זמין היום (מחלה, חופשה, מילואים…).</p>
+      <p class="empty" style="margin:-6px 0 10px">אתר לקוח, מחלה, חופשה</p>
       <div class="row person head"><div>שם</div><div>סיבה</div><div></div></div>
       <div id="unavail"></div>
       <button class="add" onclick="addPerson()">+ הוסף</button>
@@ -186,7 +186,7 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "1.4";
+const VERSION = "1.5";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -200,7 +200,7 @@ const HEADER = `# --------------------------------------------------------------
 # שמירת הקובץ (Commit) שולחת את הכרטיס ל-Teams.
 #
 # לא זמינים: שורה לכל אדם, בפורמט   שם: סיבה
-# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה
+# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח
 # ---------------------------------------------------------------
 `;
 
@@ -251,9 +251,9 @@ function parseTasksTxt(text) {
       unavailable.push({ name: (k < 0 ? line : line.slice(0, k)).trim(), reason: k < 0 ? "" : line.slice(k + 1).trim() });
     } else if (section === "t" && line.startsWith("[") && line.endsWith("]")) bucket = line.slice(1, -1).trim();
     else if (section === "t") {
-      const p = line.split("|").map(s => s.trim()); while (p.length < 4) p.push("");
+      const p = line.split("|").map(s => s.trim()); while (p.length < 5) p.push("");
       const priority = ALIASES[p[0]] || p[0];
-      if (PRIORITIES[priority] && p[1]) tasks.push({ priority, title: p[1], owner: p[2], note: p[3], bucket, publish: true });
+      if (PRIORITIES[priority] && p[1]) tasks.push({ priority, title: p[1], owner: p[2], note: p[3], customer: p[4], bucket, publish: true });
     }
   });
   return { unavailable, tasks };
@@ -265,7 +265,7 @@ function toTasksTxt(d) {
   L.push("", "משימות:");
   for (const b of orderedBuckets(d.tasks)) {
     L.push(`[${clean(b)}]`);
-    d.tasks.filter(t => t.bucket === b).forEach(t => L.push([t.priority, t.title, t.owner, t.note].map(clean).join(" | ")));
+    d.tasks.filter(t => t.bucket === b).forEach(t => L.push([t.priority, t.title, t.owner, t.note, t.customer].map(clean).join(" | ")));
   }
   return L.join("\n") + "\n";
 }
@@ -303,7 +303,7 @@ function cardBlocks(sel) {
       if (!t.owner) { who = "❗ ללא אחראי"; c = "Attention"; }
       else if (away.has(t.owner)) { who = `${t.owner} · ⚠️ לא זמין/ה היום, צריך מחליף`; c = "Warning"; }
       else { who = t.owner; c = ""; }
-      B.push({ text: `${i}. ${PRIORITIES[t.priority][1]}${t.title}`, weight: "Bolder", small: true });
+      B.push({ text: `${i}. ${PRIORITIES[t.priority][1]}${t.customer ? t.customer + " – " : ""}${t.title}`, weight: "Bolder", small: true });
       B.push({ text: `👤 ${who}${t.note ? " · " + t.note : ""}`, color: c });
     });
   }
@@ -342,7 +342,7 @@ function renderBuckets(tasks) {
         <h2>${icon(b)} ${esc(b)} <span class="count"></span></h2>
         <label title="סמן / נקה את כל המשימות ב-bucket"><input type="checkbox" class="pub-all"> הכל לפרסום</label>
       </div>
-      <div class="row task head task-head"><div></div><div>עדיפות</div><div>משימה</div><div>אחראי</div><div>הערה</div><div></div></div>
+      <div class="row task head task-head"><div></div><div>שם לקוח</div><div>משימה</div><div>הערות</div><div>עדיפות</div><div>אחראי</div><div></div></div>
       <div class="rows"></div>
       <button class="add" onclick="addTask(${k})">+ הוסף משימה</button>
     </div>`).join("");
@@ -353,11 +353,12 @@ function addTask(k, t = {}, focus = true) {
   const pri = t.priority || "רגילה", pub = t.publish ?? true;
   const el = document.createElement("div"); el.className = "row task";
   el.innerHTML = `<input type="checkbox" class="f-pub" data-k="publish" title="לפרסום" ${pub ? "checked" : ""}>
+    <input class="f-customer" data-k="customer" value="${esc(t.customer)}" placeholder="שם לקוח">
+    <input class="f-title" data-k="title" value="${esc(t.title)}" placeholder="מה צריך לעשות">
+    <input class="f-note" data-k="note" value="${esc(t.note)}" placeholder="שעה, פרטים…">
     <select data-k="priority" class="p-${pri}">${Object.keys(PRIORITIES).map(p =>
       `<option ${p === pri ? "selected" : ""}>${p}</option>`).join("")}</select>
-    <input class="f-title" data-k="title" value="${esc(t.title)}" placeholder="מה צריך לעשות">
     ${peopleSelect("owner", t.owner, "— ללא אחראי —")}
-    <input class="f-note" data-k="note" value="${esc(t.note)}" placeholder="שעה, לקוח…">
     <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
   bucketEl.querySelector(".rows").append(el);
   if (focus) { el.querySelector(".f-title").focus(); changed(); }
@@ -365,7 +366,7 @@ function addTask(k, t = {}, focus = true) {
 function addPerson(p = {}, focus = true) {
   const el = document.createElement("div"); el.className = "row person";
   el.innerHTML = `${peopleSelect("name", p.name, "בחר…")}
-    <input data-k="reason" value="${esc(p.reason)}" placeholder="מחלה / חופשה / מילואים">
+    <input data-k="reason" value="${esc(p.reason)}" placeholder="אתר לקוח / מחלה / חופשה">
     <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
   $("unavail").append(el);
   if (focus) { el.querySelector("select").focus(); changed(); }
