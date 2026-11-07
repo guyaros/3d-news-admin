@@ -56,21 +56,31 @@
   .bucket-head label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);cursor:pointer}
   /* rows */
   .row{display:grid;gap:8px;align-items:center;margin-bottom:6px;padding:4px;border-radius:9px}
-  .row.task{grid-template-columns:24px minmax(0,.55fr) minmax(0,1fr) minmax(0,.6fr) 138px 92px 140px 32px}
+  .row.task{grid-template-columns:18px 22px minmax(0,.55fr) minmax(0,1fr) minmax(0,.6fr) 136px 128px 92px 136px 30px}
+  .drag{cursor:grab;color:var(--sub);user-select:none;text-align:center;font-size:16px;line-height:1}
+  .drag:active{cursor:grabbing}
+  .sortable-ghost{opacity:.35;background:var(--accent-soft)}
+  .rows{min-height:12px}
+  .row.task.done .f-title,.row.task.done .f-customer{text-decoration:line-through;color:var(--sub)}
+  select.s-הושלם{color:var(--green)!important;font-weight:700}
+  select.s-בביצוע{color:var(--accent)!important}
   input.f-due.late{color:var(--red);font-weight:700;border-color:var(--red)}
   .row.task.off{background:var(--muted-row)}
+  #msgPanel.off textarea{background:var(--muted-row);color:var(--sub)}
   .row.task.off input:not([type=checkbox]),.row.task.off select{color:var(--sub)}
   .row.person{grid-template-columns:170px minmax(0,1fr) 32px}
   .row.head{font-size:12px;color:var(--sub);font-weight:500;margin-bottom:2px;padding-top:0;padding-bottom:0}
   @media(max-width:680px){
-    .row.task{grid-template-columns:24px 1fr 1fr 32px;border:1px solid var(--line)}
-    .row.task .f-customer{grid-column:2/4}
-    .row.task .f-title{grid-column:2/-1}
-    .row.task .f-note{grid-column:2/-1}
+    .row.task{display:flex;flex-wrap:wrap;border:1px solid var(--line)}
+    .row.task > *{flex:1 1 45%}
+    .row.task > .drag,.row.task > .f-pub,.row.task > .ghost{flex:0 0 auto}
+    .row.task > .f-customer{flex:1 1 50%}
+    .row.task > .f-title,.row.task > .f-note{flex:1 1 100%}
     .row.head.task-head{display:none}
   }
   select.p-דחוף{color:var(--red)!important;font-weight:700}
   select.p-גבוהה{color:var(--orange)!important;font-weight:700}
+  select.p-בהמתנה{color:var(--sub)!important;font-style:italic}
   .empty{color:var(--sub);font-size:14px}
   /* action bar */
   .actions{position:fixed;bottom:0;inset-inline:0;background:var(--card);border-top:1px solid var(--line);z-index:5}
@@ -141,6 +151,14 @@
       <button class="add" onclick="addPerson()">+ הוסף</button>
     </div>
 
+    <div class="panel" id="msgPanel">
+      <div class="bucket-head">
+        <h2>📝 הודעה חופשית</h2>
+        <label title="לכלול את ההודעה בכרטיס"><input type="checkbox" id="msgPub"> כלול בפרסום</label>
+      </div>
+      <textarea id="msgText" rows="3" placeholder="הודעה לצוות: עדכונים, תזכורות, הנחיות…"></textarea>
+    </div>
+
     <div id="buckets"></div>
 
     <div class="panel">
@@ -178,6 +196,7 @@
   <button class="primary" id="pubBtn" onclick="publish()">שלח ופרסם</button>
 </div></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script>
 // ---------- הגדרות ----------
 const REPO = "guyaros/3d-news";
@@ -187,11 +206,13 @@ const TOKEN_KEY = "3dnews-admin-token";
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "1.6";
+const VERSION = "1.8";
 const UPDATED = "07.11.2026";
 
 // חייב להתאים ל-tasks.py
-const PRIORITIES = { "דחוף": [0, "🔴 "], "גבוהה": [1, "🟠 "], "רגילה": [2, ""] };
+const PRIORITIES = { "דחוף": [0, "🔴 "], "גבוהה": [1, "🟠 "], "רגילה": [2, ""], "בהמתנה": [3, "⏸️ "] };
+// סטטוס -> אייקון בכרטיס ("לא התחיל" לא מוצג בכרטיס)
+const STATUSES = { "לא התחיל": "", "בביצוע": "🔄", "ממתין ללקוח": "⏳", "ממתין לחלקים": "📦", "הושלם": "✅" };
 const ALIASES = { "גבוה": "גבוהה", "רגיל": "רגילה" };
 const BUCKET_ICONS = { "שירות באתר הלקוח": "🚗", "התקנות והדרכות": "🛠️", "תיקונים במעבדה": "🔬",
   "טיפולי תחזוקה מונעת PM": "🔧", "משימות כללי": "📌" };
@@ -201,8 +222,10 @@ const HEADER = `# --------------------------------------------------------------
 # המשימות שפורסמו. נוצר אוטומטית מממשק הניהול - הלוח המלא נמצא ב-board.json.
 # שמירת הקובץ (Commit) שולחת את הכרטיס ל-Teams.
 #
+# הודעה:     (אופציונלי) שורות טקסט חופשי, כל אחת מתחילה ב- >
 # לא זמינים: שורה לכל אדם, בפורמט   שם: סיבה
-# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח | תאריך (YYYY-MM-DD)
+# משימות:    [שם bucket] ואחריו שורה לכל משימה:  עדיפות | משימה | אחראי | הערה | לקוח | תאריך (YYYY-MM-DD) | סטטוס
+# סדר המשימות בקובץ הוא הסדר בכרטיס.
 # ---------------------------------------------------------------
 `;
 
@@ -241,11 +264,13 @@ async function writeFile(name, text, message) {
 
 // ---------- tasks.txt (זהה ל-tasks.py) ----------
 function parseTasksTxt(text) {
-  const unavailable = [], tasks = []; let section = null, bucket = "";
+  const unavailable = [], tasks = [], message = []; let section = null, bucket = "";
   text.split(/\r?\n/).forEach(raw => {
     const line = raw.trim();
+    if (section === "m" && line.startsWith(">")) { message.push(line.slice(1).trim()); return; }
     if (!line || line.startsWith("#")) return;
     const head = line.replace(/:$/, "").trim();
+    if (head === "הודעה") { section = "m"; return; }
     if (head === "לא זמינים") { section = "u"; return; }
     if (head === "משימות") { section = "t"; return; }
     if (section === "u") {
@@ -253,22 +278,26 @@ function parseTasksTxt(text) {
       unavailable.push({ name: (k < 0 ? line : line.slice(0, k)).trim(), reason: k < 0 ? "" : line.slice(k + 1).trim() });
     } else if (section === "t" && line.startsWith("[") && line.endsWith("]")) bucket = line.slice(1, -1).trim();
     else if (section === "t") {
-      const p = line.split("|").map(s => s.trim()); while (p.length < 6) p.push("");
+      const p = line.split("|").map(s => s.trim()); while (p.length < 7) p.push("");
       const priority = ALIASES[p[0]] || p[0];
       if (PRIORITIES[priority] && p[1]) tasks.push({ priority, title: p[1], owner: p[2], note: p[3], customer: p[4],
-        due: /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", bucket, publish: true });
+        due: /^\d{4}-\d{2}-\d{2}$/.test(p[5]) ? p[5] : "", status: p[6] in STATUSES ? p[6] : "", bucket, publish: false });
     }
   });
-  return { unavailable, tasks };
+  while (message.length && !message[message.length - 1]) message.pop();
+  return { unavailable, tasks, message };
 }
 function toTasksTxt(d) {
   const now = new Date().toLocaleString("he-IL", { timeZone: TZ });
-  const L = [HEADER, `# פורסם: ${now}`, "", "לא זמינים:"];
+  const L = [HEADER, `# פורסם: ${now}`, ""];
+  const msgLines = (d.message || "").replace(/\s+$/, "").split(/\r?\n/);
+  if (d.message && d.message.trim()) L.push("הודעה:", ...msgLines.map(s => "> " + s.trim()), "");
+  L.push("לא זמינים:");
   d.unavailable.forEach(p => { const n = clean(p.name).replace(/:/g, " "); if (n) L.push(p.reason ? `${n}: ${clean(p.reason)}` : n); });
   L.push("", "משימות:");
   for (const b of orderedBuckets(d.tasks)) {
     L.push(`[${clean(b)}]`);
-    d.tasks.filter(t => t.bucket === b).forEach(t => L.push([t.priority, t.title, t.owner, t.note, t.customer, t.due].map(clean).join(" | ")));
+    d.tasks.filter(t => t.bucket === b).forEach(t => L.push([t.priority, t.title, t.owner, t.note, t.customer, t.due, t.status].map(clean).join(" | ")));
   }
   return L.join("\n") + "\n";
 }
@@ -282,7 +311,7 @@ function orderedBuckets(tasks) {
 function cardBlocks(sel) {
   const d = parseTasksTxt(toTasksTxt(sel));  // בונים מהקובץ עצמו, כדי שהתצוגה תהיה זהה למה שיישלח
   const away = new Set(d.unavailable.map(p => p.name));
-  const summary = [`${d.tasks.length} משימות`];
+  const summary = d.tasks.length ? [`${d.tasks.length} משימות`] : [];
   const urgent = d.tasks.filter(t => t.priority === "דחוף").length;
   const noOwner = d.tasks.filter(t => !t.owner).length;
   if (urgent) summary.push(urgent === 1 ? "1 דחופה" : `${urgent} דחופות`);
@@ -291,8 +320,12 @@ function cardBlocks(sel) {
   const date = new Date().toLocaleDateString("he-IL", { timeZone: TZ, weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
   const B = [
     { text: "📋 משימות להיום", size: "Large", weight: "Bolder" },
-    { text: `${date} · ${summary.join(" · ")}`, subtle: true },
+    { text: [date, ...summary].join(" · "), subtle: true },
   ];
+  if (d.message.length) {
+    B.push({ text: "📝 הודעה לצוות", weight: "Bolder", sep: true });
+    d.message.forEach(l => B.push({ text: l || " " }));
+  }
   if (d.unavailable.length) {
     B.push({ text: "🤒 לא זמינים היום", weight: "Bolder", sep: true });
     d.unavailable.forEach(p => B.push({ text: `• ${p.name}${p.reason ? ": " + p.reason : ""}`, small: true }));
@@ -300,8 +333,7 @@ function cardBlocks(sel) {
   let i = 0;
   for (const b of orderedBuckets(d.tasks)) {
     B.push({ text: b ? `${icon(b)} ${b}` : "📋 משימות", weight: "Bolder", color: "Accent", sep: true });
-    const key = t => `${PRIORITIES[t.priority][0]}|${t.due || "9999"}`;
-    d.tasks.filter(t => t.bucket === b).sort((x, y) => key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : 0).forEach(t => {
+    d.tasks.filter(t => t.bucket === b).forEach(t => {  // לפי הסדר שנקבע בלוח
       i++;
       let who, c;
       if (!t.owner) { who = "❗ ללא אחראי"; c = "Attention"; }
@@ -314,16 +346,22 @@ function cardBlocks(sel) {
         if (t.due < today && !c) c = "Attention";
       }
       B.push({ text: `${i}. ${PRIORITIES[t.priority][1]}${t.customer ? t.customer + " – " : ""}${t.title}`, weight: "Bolder", small: true });
-      B.push({ text: [`👤 ${who}`, due, t.note].filter(Boolean).join(" · "), color: c });
+      const st = t.status && t.status !== "לא התחיל" ? `${STATUSES[t.status]} ${t.status}` : "";
+      B.push({ text: [`👤 ${who}`, st, due, t.note].filter(Boolean).join(" · "), color: c });
     });
   }
   return B;
 }
-function selected() { const b = collect(); return { unavailable: b.unavailable, tasks: b.tasks.filter(t => t.publish) }; }
+function selected() {
+  const b = collect();
+  return { unavailable: b.unavailable, tasks: b.tasks.filter(t => t.publish), message: b.messagePublish ? b.message : "" };
+}
+const hasContent = d => d.tasks.length > 0 || !!(d.message && d.message.trim());
 function renderPreview() {
   const all = collect(), d = selected();
   $("cntU").textContent = d.unavailable.length;
-  $("pubBtn").textContent = `שלח ופרסם (${d.tasks.length})`;
+  $("pubBtn").textContent = `שלח ופרסם (${d.tasks.length}${d.message ? " + הודעה" : ""})`;
+  $("msgPanel").classList.toggle("off", !$("msgPub").checked);
   document.querySelectorAll(".bucket").forEach(el => {
     const boxes = [...el.querySelectorAll(".f-pub")], on = boxes.filter(x => x.checked).length;
     const all = el.querySelector(".pub-all");
@@ -332,9 +370,10 @@ function renderPreview() {
     el.querySelector(".count").textContent = boxes.length ? `${on}/${boxes.length} לפרסום` : "ריק";
     boxes.forEach(x => x.closest(".row").classList.toggle("off", !x.checked));
     el.querySelectorAll(".f-due").forEach(x => x.classList.toggle("late", !!x.value && x.value < todayISO()));
+    el.querySelectorAll(".f-status").forEach(x => x.closest(".row").classList.toggle("done", x.value === "הושלם"));
   });
-  if (!d.tasks.length) { $("preview").innerHTML = `<span class="empty">${all.tasks.length
-    ? "סמנו ☑ ליד המשימות שתרצו לפרסם." : "הוסיפו משימות ללוח."}</span>`; return; }
+  if (!hasContent(d)) { $("preview").innerHTML = `<span class="empty">${all.tasks.length || all.message.trim()
+    ? "סמנו ☑ ליד מה שתרצו לפרסם." : "הוסיפו משימות ללוח."}</span>`; return; }
   $("preview").innerHTML = cardBlocks(d).map(b => `<p class="tb ${b.weight||""} ${b.size||""} ${b.color||""}
     ${b.subtle?"subtle":""} ${b.sep?"sep":""} ${b.small?"sp-Small":""}">${esc(b.text)}</p>`).join("");
 }
@@ -353,21 +392,27 @@ function renderBuckets(tasks) {
         <h2>${icon(b)} ${esc(b)} <span class="count"></span></h2>
         <label title="סמן / נקה את כל המשימות ב-bucket"><input type="checkbox" class="pub-all"> הכל לפרסום</label>
       </div>
-      <div class="row task head task-head"><div></div><div>שם לקוח</div><div>משימה</div><div>הערות</div><div>תאריך לביצוע</div><div>עדיפות</div><div>אחראי</div><div></div></div>
+      <div class="row task head task-head"><div></div><div></div><div>שם לקוח</div><div>משימה</div><div>הערות</div><div>תאריך לביצוע</div><div>סטטוס</div><div>עדיפות</div><div>אחראי</div><div></div></div>
       <div class="rows"></div>
       <button class="add" onclick="addTask(${k})">+ הוסף משימה</button>
     </div>`).join("");
   tasks.forEach(t => addTask(list.indexOf(t.bucket), t, false));
+  // גרירה לסידור, גם בין buckets (SortableJS תומך גם במגע בטלפון)
+  if (window.Sortable) document.querySelectorAll(".bucket .rows").forEach(r => Sortable.create(r, {
+    group: "tasks", handle: ".drag", animation: 150, ghostClass: "sortable-ghost", onEnd: changed }));
 }
 function addTask(k, t = {}, focus = true) {
   const bucketEl = document.querySelectorAll(".bucket")[k];
-  const pri = t.priority || "רגילה", pub = t.publish ?? true;
+  const pri = t.priority || "רגילה", pub = t.publish ?? false, st = t.status || "לא התחיל";
   const el = document.createElement("div"); el.className = "row task";
-  el.innerHTML = `<input type="checkbox" class="f-pub" data-k="publish" title="לפרסום" ${pub ? "checked" : ""}>
+  el.innerHTML = `<span class="drag" title="גרירה לשינוי סדר או להעברה ל-bucket אחר">⋮⋮</span>
+    <input type="checkbox" class="f-pub" data-k="publish" title="לפרסום" ${pub ? "checked" : ""}>
     <input class="f-customer" data-k="customer" value="${esc(t.customer)}" placeholder="שם לקוח">
     <input class="f-title" data-k="title" value="${esc(t.title)}" placeholder="מה צריך לעשות">
     <input class="f-note" data-k="note" value="${esc(t.note)}" placeholder="שעה, פרטים…">
     <input class="f-due" type="date" data-k="due" value="${esc(t.due)}" title="תאריך לביצוע">
+    <select class="f-status s-${st}" data-k="status">${Object.keys(STATUSES).map(s =>
+      `<option ${s === st ? "selected" : ""}>${s}</option>`).join("")}</select>
     <select data-k="priority" class="p-${pri}">${Object.keys(PRIORITIES).map(p =>
       `<option ${p === pri ? "selected" : ""}>${p}</option>`).join("")}</select>
     ${peopleSelect("owner", t.owner, "— ללא אחראי —")}
@@ -390,7 +435,7 @@ function collect() {
   document.querySelectorAll(".bucket").forEach(b =>
     b.querySelectorAll(".rows > .row").forEach(r => { const t = fields(r); if (t.title) tasks.push({ bucket: b.dataset.bucket, ...t }); }));
   const unavailable = [...$("unavail").children].map(fields).filter(p => p.name);
-  return { buckets, unavailable, tasks };
+  return { buckets, unavailable, tasks, message: $("msgText").value, messagePublish: $("msgPub").checked };
 }
 function setDirty(v) {
   dirty = v;
@@ -403,6 +448,7 @@ document.addEventListener("input", e => {
     e.target.closest(".bucket").querySelectorAll(".f-pub").forEach(x => x.checked = e.target.checked);
   }
   if (e.target.dataset.k === "priority") e.target.className = "p-" + e.target.value;
+  if (e.target.dataset.k === "status") e.target.className = "f-status s-" + e.target.value;
   changed();
 });
 window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
@@ -411,6 +457,8 @@ window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); 
 function render(board) {
   buckets = board.buckets?.length ? board.buckets : [...DEFAULT_BUCKETS];
   $("bucketText").value = buckets.join("\n");
+  $("msgText").value = board.message || "";
+  $("msgPub").checked = !!board.messagePublish;
   $("unavail").innerHTML = "";
   (board.unavailable || []).forEach(p => addPerson(p, false));
   renderBuckets(board.tasks || []);
@@ -452,8 +500,8 @@ async function save() {
 }
 async function publish() {
   const d = selected(), total = collect().tasks.length;
-  if (!d.tasks.length) return status("err", "לא סומנו משימות לפרסום.");
-  if (!confirm(`לפרסם ${d.tasks.length} מתוך ${total} משימות לערוץ ב-Teams?`)) return;
+  if (!hasContent(d)) return status("err", "לא סומן שום דבר לפרסום.");
+  if (!confirm(`לפרסם ${d.tasks.length} מתוך ${total} משימות${d.message ? " והודעה חופשית" : ""} לערוץ ב-Teams?`)) return;
   busy(true); status("info", "שומר…");
   try {
     await saveBoard("Update tasks board");
