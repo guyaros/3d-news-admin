@@ -238,6 +238,11 @@
   .tl-out{display:flex;gap:6px;margin-top:6px}
   .tl-out input{direction:ltr;font-size:12px}
   #teamLogin{max-width:560px;margin:50px auto;padding:0 16px}
+  /* תצוגת צוות למנהל: רואים בדיוק את מה שהצוות רואה, בלי אפשרות לשנות */
+  .pv-only{display:none!important}
+  .pv-mode .pv-only{display:inline-flex!important}
+  .pv-mode .badge.team-only{background:var(--orange-soft);color:var(--orange)}
+  .pv-exit{background:var(--orange);color:var(--on-orange);border-color:var(--orange);font-weight:700;padding:5px 12px;font-size:13px}
   .hidden{display:none!important}
 </style>
 </head>
@@ -247,7 +252,8 @@
   <div class="logo" title="3D Printing Support Team">3DP-ST</div>
   <div><h1>צוות תמיכה מדפסות תלת-ממד - לוח ניהול משימות</h1><div class="date" id="today"></div></div>
   <div class="spacer"></div>
-  <span class="badge team-only" title="אפשר לצפות במשימות ולעדכן סטטוס">👁️ מצב צוות</span>
+  <span class="badge team-only" id="teamBadge" title="אפשר לצפות במשימות ולעדכן סטטוס">👁️ מצב צוות</span>
+  <button class="pv-only pv-exit" onclick="togglePreview()" title="חזרה לממשק הניהול (שינויים שלא נשמרו נשארים)">✕ חזרה לניהול</button>
   <div class="version" id="version"></div>
   <button class="ghost theme-btn" id="themeBtn" onclick="cycleTheme()"></button>
   <button class="ghost hidden" id="logoutBtn" onclick="logout()" title="מחיקת מפתח הגישה מהדפדפן">התנתק</button>
@@ -296,6 +302,7 @@
         <span class="spacer"></span>
         <label class="me-pick team-only" title="השם שלכם, לעדכון סטטוס">👤 אני: <select id="meSel" onchange="setMe(this.value)"></select></label>
         <button type="button" class="tab team-only" onclick="showMine()">המשימות שלי</button>
+        <button type="button" class="tab admin-only" onclick="togglePreview()" title="לראות את הלוח בדיוק כמו שהצוות רואה אותו (לקריאה בלבד)">👁️ תצוגת צוות</button>
         <span class="empty" id="fCount"></span>
       </div>
       <div class="filters">
@@ -400,11 +407,12 @@ const STATUS_WF = "status.yml";  // עדכון סטטוס מהצוות
 const TOKEN_KEY = "3dnews-admin-token";
 const ROLE_KEY = "3dnews-admin-role", TEAM_BLOB_KEY = "3dnews-admin-teamlink", ME_KEY = "3dnews-admin-me";
 let TEAM = false;      // מצב צוות: צפייה ועדכון סטטוס בלבד
+let PREVIEW = false;   // מנהל צופה בלוח כמו הצוות (לקריאה בלבד)
 let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "6.1";
+const VERSION = "6.2";
 const UPDATED = "08.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -634,7 +642,7 @@ function renderPreview() {
     const all = el.querySelector(".pub-all");
     all.checked = boxes.length > 0 && on === boxes.length; all.indeterminate = on > 0 && on < boxes.length;
     all.disabled = !boxes.length;
-    el.querySelector(".count").textContent = !boxes.length ? "ריק" : TEAM ? boxes.length : `${on}/${boxes.length} לפרסום`;
+    el.querySelector(".count").textContent = !boxes.length ? "ריק" : TEAM || PREVIEW ? boxes.length : `${on}/${boxes.length} לפרסום`;
     boxes.forEach(x => x.closest(".row").classList.toggle("off", !x.checked));
     el.querySelectorAll(".f-due").forEach(x => x.closest(".dfield").classList.toggle("late", !!x.value && x.value < todayISO()));
     el.querySelectorAll(".f-status").forEach(x => x.closest(".row").classList.toggle("done", x.value === "הושלם"));
@@ -936,7 +944,7 @@ function addTask(k, t = {}, focus = true) {
   bucketEl.querySelector(".rows").append(el);
   const sel = el.querySelector(".f-status"); sel.dataset.cur = st;
   el.querySelector(".due-cell").dataset.cur = t.due || "";
-  if (TEAM) {  // הצוות יכול לשנות רק סטטוס ומועד
+  if (TEAM || PREVIEW) {  // הצוות יכול לשנות רק סטטוס ומועד
     const open = x => x === sel || x.matches(".d-text, .d-iso, .d-btn, [data-k=dueFuture]");
     el.querySelectorAll("input, textarea, select, .d-btn").forEach(x => { if (!open(x)) x.disabled = true; });
     if (!t.id) el.querySelectorAll("select, input, .d-btn").forEach(x => { x.disabled = true; x.title = "המשימה עוד לא נשמרה בגרסה החדשה. מנהל הלוח צריך ללחוץ 'שמור לוח'."; });
@@ -997,6 +1005,12 @@ window.addEventListener("resize", () => { clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => document.querySelectorAll("textarea.grow").forEach(autosize), 150); });
 document.addEventListener("input", e => {
   if (!e.target.closest("#app") || e.target.closest(".manage") || e.target.closest(".toolbar") || e.target.closest("#settingsPanel")) return;
+  if (PREVIEW) {  // תצוגת צוות: נראה כמו אצל הצוות, אבל שום שינוי לא נשלח
+    const r = e.target.closest(".row.task"); if (!r) return;
+    showField(r, "status", r.querySelector(".f-status").dataset.cur); showField(r, "due", r.querySelector(".due-cell").dataset.cur);
+    status("info", "👁️ זו תצוגת צוות. כאן הצוות יכול לשנות סטטוס ומועד; אצלך זה לא נשמר. לעריכה: ✕ חזרה לניהול.");
+    return;
+  }
   if (TEAM) {
     const r = e.target.closest(".row.task"); if (!r) return;
     if (e.target.dataset.k === "status") { e.target.className = "f-status s-" + e.target.value; teamUpdate(r, "status", e.target.value); }
@@ -1095,7 +1109,7 @@ async function teamUpdate(row, f, v) {
 }
 // הקלדת תאריך: נשלח ביציאה מהשדה, רק אם התאריך תקין
 document.addEventListener("change", e => {
-  if (!TEAM || !e.target.classList.contains("d-text")) return;
+  if (!TEAM || PREVIEW || !e.target.classList.contains("d-text")) return;
   const f = e.target.closest(".dfield"), r = e.target.closest(".row.task");
   if (!r || f.classList.contains("bad")) return;
   teamUpdate(r, "due", getDue(r));
@@ -1157,6 +1171,17 @@ async function teamLogin() {
   catch (e) { return msg("teamMsg", "err", [401, 404].includes(e.status) ? "הלינק כבר לא בתוקף. בקשו לינק חדש ממנהל הלוח." : "שגיאה: " + e.message); }
   token = t; storage("set", t); ls.set(ROLE_KEY, "team"); TEAM = true; $("teamPass").value = "";
   start();
+}
+// מנהל: מעבר לתצוגת צוות וחזרה. הנתונים (כולל שינויים שלא נשמרו) נשארים כמו שהם
+function togglePreview() {
+  const board = collect();
+  PREVIEW = !PREVIEW;
+  document.body.classList.toggle("team-mode", PREVIEW); document.body.classList.toggle("pv-mode", PREVIEW);
+  $("teamBadge").textContent = PREVIEW ? "👁️ תצוגת צוות (לקריאה בלבד)" : "👁️ מצב צוות";
+  render(board);
+  if (PREVIEW) status("info", "👁️ כך הצוות רואה את הלוח." + (dirty ? " שינויים שלא נשמרו מוצגים כאן, אבל הצוות לא יראה אותם עד שתשמור." : ""));
+  else dirty ? setDirty(true) : status("", "");
+  window.scrollTo(0, 0);
 }
 function forgetTeam() { ls.del(TEAM_BLOB_KEY); logout(); }
 function boot() {
@@ -1320,7 +1345,8 @@ async function login() {
   }
 }
 function logout(reason) {
-  storage("del"); token = null; dirty = false; ls.del(ROLE_KEY); TEAM = false;
+  storage("del"); token = null; dirty = false; ls.del(ROLE_KEY); TEAM = false; PREVIEW = false;
+  document.body.classList.remove("pv-mode", "team-mode");
   ["app", "actions", "logoutBtn"].forEach(id => $(id).classList.add("hidden"));
   if (ls.get(TEAM_BLOB_KEY)) return showTeamLogin(reason);  // נכנסו בעבר עם לינק צוות
   $("teamLogin").classList.add("hidden");
