@@ -243,6 +243,55 @@
   .pv-mode .pv-only{display:inline-flex!important}
   .pv-mode .badge.team-only{background:var(--orange-soft);color:var(--orange)}
   .pv-exit{background:var(--orange);color:var(--on-orange);border-color:var(--orange);font-weight:700;padding:5px 12px;font-size:13px}
+  /* ---------- מסך תצוגה (שומר מסך): כהה תמיד, טקסט גדול, גלילה איטית ---------- */
+  #wall{position:fixed;inset:0;z-index:50;background:#0e1016;color:#e8eaf1;display:flex;flex-direction:column;
+        font-size:clamp(14px,1.05vw,22px);cursor:none;overflow:hidden;
+        --w-card:#181b24;--w-line:#2a2e3b;--w-sub:#9097a8;--w-accent:#8b8ff0;--w-red:#ff6b81;--w-orange:#ffb44d;--w-green:#5fd394;--w-gray:#6b7182}
+  #wall.show-ui{cursor:default}
+  #wall .w-top{display:flex;align-items:center;gap:1.2em;padding:.8em 1.4em;border-bottom:1px solid var(--w-line)}
+  #wall .w-logo{background:var(--w-accent);color:#14152a;font-weight:700;border-radius:.4em;padding:.25em .6em;direction:ltr}
+  #wall .w-title{font-size:1.45em;font-weight:700;line-height:1.2}
+  #wall .w-date{color:var(--w-sub);font-size:.95em}
+  #wall .w-clock{margin-inline-start:auto;font-size:2.6em;font-weight:700;letter-spacing:.02em;direction:ltr;font-variant-numeric:tabular-nums;line-height:1}
+  #wall .w-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.8em;padding:.9em 1.4em .4em}
+  #wall .w-kpi{background:var(--w-card);border:1px solid var(--w-line);border-radius:.6em;padding:.55em .9em;border-top:4px solid var(--w-gray)}
+  #wall .w-kpi b{display:block;font-size:2.1em;line-height:1.1;font-variant-numeric:tabular-nums}
+  #wall .w-kpi span{color:var(--w-sub);font-size:.9em}
+  #wall .w-kpi.red{border-top-color:var(--w-red)} #wall .w-kpi.red b{color:var(--w-red)}
+  #wall .w-kpi.acc{border-top-color:var(--w-accent)} #wall .w-kpi.orange{border-top-color:var(--w-orange)}
+  #wall .w-kpi.green{border-top-color:var(--w-green)}
+  #wall .w-kpi.zero b{color:var(--w-sub)}
+  #wall .w-strip{display:flex;flex-wrap:wrap;gap:.5em;padding:.5em 1.4em;align-items:center}
+  #wall .w-strip .lbl{color:var(--w-sub);margin-inline-end:.3em}
+  #wall .w-chip{border:1px solid var(--w-line);border-radius:2em;padding:.15em .8em;background:var(--w-card);white-space:nowrap}
+  #wall .w-chip.away{border-color:var(--w-red);color:var(--w-red)} #wall .w-chip.limited{border-color:var(--w-orange);color:var(--w-orange)}
+  #wall .w-msg{margin:.3em 1.4em .2em;padding:.6em 1em;border-radius:.6em;background:#1d2033;border-inline-start:4px solid var(--w-accent);white-space:pre-line}
+  #wall .w-view{flex:1;min-height:0;overflow:hidden;position:relative;margin-top:.4em;
+        mask-image:linear-gradient(transparent,#000 3%,#000 95%,transparent);-webkit-mask-image:linear-gradient(transparent,#000 3%,#000 95%,transparent)}
+  #wall .w-track{padding:0 1.4em;will-change:transform}
+  #wall .w-copy{padding-top:.6em}
+  #wall .w-bucket{margin-bottom:1.3em}
+  #wall .w-bucket h3{margin:0 0 .5em;font-size:1.2em;display:flex;align-items:center;gap:.5em}
+  #wall .w-bucket h3 .n{background:#262a3d;color:var(--w-accent);border-radius:2em;padding:0 .6em;font-size:.8em}
+  #wall .w-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(17em,1fr));gap:.7em}
+  #wall .w-card{background:var(--w-card);border:1px solid var(--w-line);border-inline-start:5px solid var(--w-gray);border-radius:.6em;padding:.6em .8em;display:flex;flex-direction:column;gap:.25em}
+  #wall .w-card.p-דחוף{border-inline-start-color:var(--w-red)} #wall .w-card.p-גבוהה{border-inline-start-color:var(--w-orange)}
+  #wall .w-card.p-רגילה{border-inline-start-color:var(--w-accent)} #wall .w-card.p-בהמתנה{opacity:.7}
+  #wall .w-card.late{background:#2a1a20}
+  #wall .w-cust{font-weight:700;font-size:1.12em;line-height:1.25}
+  #wall .w-task{line-height:1.3}
+  #wall .w-meta{display:flex;flex-wrap:wrap;gap:.35em;margin-top:.2em;font-size:.88em}
+  #wall .w-meta span{background:#232735;border-radius:.4em;padding:.05em .5em;white-space:nowrap}
+  #wall .w-meta .late{background:var(--w-red);color:#22080d;font-weight:700}
+  #wall .w-meta .today{background:var(--w-accent);color:#14152a;font-weight:700}
+  #wall .w-meta .warn{color:var(--w-orange)} #wall .w-meta .none{color:var(--w-red)}
+  #wall .w-eq{color:var(--w-sub);font-size:.85em}
+  #wall .w-empty{color:var(--w-sub);font-size:1.4em;text-align:center;margin-top:3em}
+  #wall .w-foot{display:flex;gap:1em;padding:.35em 1.4em;color:var(--w-sub);font-size:.8em;border-top:1px solid var(--w-line)}
+  #wall .w-ctl{position:absolute;top:.8em;left:1em;display:flex;gap:.5em;opacity:0;transition:opacity .3s;pointer-events:none}
+  #wall.show-ui .w-ctl{opacity:1;pointer-events:auto}
+  #wall .w-ctl button{background:#262a3d;color:#e8eaf1;border:1px solid var(--w-line);font-size:.9em}
+  @media(max-width:900px){#wall .w-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}#wall .w-clock{font-size:1.8em}}
   .hidden{display:none!important}
 </style>
 </head>
@@ -303,6 +352,7 @@
         <label class="me-pick team-only" title="השם שלכם, לעדכון סטטוס">👤 אני: <select id="meSel" onchange="setMe(this.value)"></select></label>
         <button type="button" class="tab team-only" onclick="showMine()">המשימות שלי</button>
         <button type="button" class="tab admin-only" onclick="togglePreview()" title="לראות את הלוח בדיוק כמו שהצוות רואה אותו (לקריאה בלבד)">👁️ תצוגת צוות</button>
+        <button type="button" class="tab" onclick="openWall()" title="מסך תצוגה לטלוויזיה או למסך נוסף: כל המשימות הפתוחות, מתעדכן לבד">🖥️ מסך תצוגה</button>
         <span class="empty" id="fCount"></span>
       </div>
       <div class="filters">
@@ -390,6 +440,24 @@
   </div>
 </div>
 
+<!-- מסך תצוגה -->
+<div id="wall" class="hidden">
+  <div class="w-top">
+    <div class="w-logo">3DP-ST</div>
+    <div><div class="w-title">צוות תמיכה מדפסות תלת-ממד · משימות פתוחות</div><div class="w-date" id="wDate"></div></div>
+    <div class="w-clock" id="wClock"></div>
+  </div>
+  <div class="w-kpis" id="wKpis"></div>
+  <div class="w-strip" id="wAvail"></div>
+  <div id="wMsg"></div>
+  <div class="w-view" id="wView"><div class="w-track" id="wTrack"></div></div>
+  <div class="w-foot"><span id="wUpd"></span><span style="flex:1"></span><span>Esc ליציאה · F למסך מלא</span></div>
+  <div class="w-ctl">
+    <button type="button" onclick="wallFull()">⛶ מסך מלא</button>
+    <button type="button" onclick="closeWall()">✕ יציאה</button>
+  </div>
+</div>
+
 <div class="actions hidden" id="actions"><div class="in">
   <div class="status" id="status"></div>
   <button onclick="reload()">טען מחדש</button>
@@ -412,7 +480,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "6.2";
+const VERSION = "6.3";
 const UPDATED = "08.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -1041,6 +1109,122 @@ document.addEventListener("input", e => {
 });
 window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
 
+// ---------- מסך תצוגה (שומר מסך) ----------
+// מציג את כל המשימות הפתוחות בגלילה איטית ומתמשכת. קריאה בלבד; נטען מחדש מ-GitHub כל 2 דקות.
+// אפשר לפתוח ישר: כתובת הלוח + #wall (למשל במחשב שמחובר לטלוויזיה).
+let WALL = false, wantWall = /(^|[#&])wall\b/.test(location.hash), wallY = 0, wallLast = 0, wallRaf = 0, wallLock = null, wallUiT = 0, wallLoadedAt = null;
+const WALL_SPEED = 28, WALL_REFRESH = 2 * 60 * 1000;  // פיקסלים לשנייה; רענון
+const PRI_RANK = t => (PRIORITIES[t.priority] || [2])[0];
+const hhmm = () => new Date().toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+function wallData() {
+  const b = collect(), today = todayISO();
+  const inRange = p => { let f = p.from, to = p.to; if (f && to && f > to) [f, to] = [to, f];
+    return f || to ? (!f || f <= today) && (!to || to >= today) : true; };
+  const avail = b.unavailable.filter(inRange).map(p => ({ ...p, type: p.type in AVAIL ? p.type : guessAvail(p.reason) }));
+  const away = new Set(avail.filter(p => p.type === "away").map(p => p.name));
+  const dated = t => !!t.due && t.due !== FUTURE;
+  const dueKey = t => dated(t) ? t.due : t.due === FUTURE ? "9999-12-31" : "9999-12-30";
+  // באיחור קודם, אחר כך לפי עדיפות, ואז לפי תאריך
+  const open = b.tasks.filter(t => (t.status || "לא התחיל") !== "הושלם").sort((x, y) => {
+    const lx = dated(x) && x.due < today, ly = dated(y) && y.due < today;
+    return (ly - lx) || (PRI_RANK(x) - PRI_RANK(y)) || dueKey(x).localeCompare(dueKey(y));
+  });
+  return { b, today, avail, away, open, dated };
+}
+function renderWall() {
+  if (!WALL) return;
+  const { b, today, avail, away, open, dated } = wallData();
+  const n = f => open.filter(f).length;
+  const k = [
+    ["משימות פתוחות", open.length, "acc"],
+    ["באיחור", n(t => dated(t) && t.due < today), "red"],
+    ["להיום", n(t => t.due === today), "acc"],
+    ["בביצוע", n(t => t.status === "בביצוע"), "green"],
+    ["ממתינות (לקוח / חלקים / יצרן)", n(t => /^ממתין/.test(t.status || "")), "orange"],
+    ["ללא אחראי", n(t => !t.owner), "red"],
+  ];
+  $("wKpis").innerHTML = k.map(([l, v, c]) => `<div class="w-kpi ${c} ${v ? "" : "zero"}"><b>${v}</b><span>${l}</span></div>`).join("");
+  $("wAvail").innerHTML = `<span class="lbl">זמינות היום:</span>` + (avail.length ? avail.map(p => { const [label, ic] = AVAIL[p.type];
+      return `<span class="w-chip ${p.type}">${ic} ${esc(p.name)} · ${esc(p.reason && p.reason !== label ? p.reason : label)}</span>`; }).join("")
+    : `<span class="w-chip">✅ כל הצוות זמין</span>`);
+  $("wMsg").innerHTML = b.messagePublish && b.message.trim() ? `<div class="w-msg">📝 ${esc(b.message.trim())}</div>` : "";
+  const dm = s => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
+  const card = t => {
+    const late = dated(t) && t.due < today, now = t.due === today || late;
+    const due = t.due === FUTURE ? `<span>📅 עתידי</span>` : !t.due ? "" : late ? `<span class="late">📅 ${dm(t.due)} באיחור</span>`
+      : t.due === today ? `<span class="today">📅 היום</span>` : `<span>📅 ${dm(t.due)}</span>`;
+    const who = !t.owner ? `<span class="none">👤 ללא אחראי</span>`
+      : away.has(t.owner) && now ? `<span class="warn">👤 ${esc(t.owner)} (לא זמין היום)</span>` : `<span>👤 ${esc(t.owner)}</span>`;
+    const st = t.status && t.status !== "לא התחיל" ? `<span>${STATUSES[t.status] || ""} ${esc(t.status)}</span>` : "";
+    const pri = t.priority === "דחוף" || t.priority === "גבוהה" ? `<span class="${t.priority === "דחוף" ? "late" : "warn"}">${PRI_ICON[t.priority]} ${t.priority}</span>` : "";
+    const eq = [t.equip, t.serial ? `S/N ${t.serial}` : "", t.ticket ? `🎫 ${t.ticket}` : ""].filter(Boolean).map(x => `<bdi>${esc(x)}</bdi>`).join(" · ");
+    return `<div class="w-card p-${esc(t.priority)} ${late ? "late" : ""}">
+      ${t.customer ? `<div class="w-cust">${esc(t.customer)}</div>` : ""}
+      ${t.title ? `<div class="w-task">${esc(t.title)}</div>` : ""}
+      <div class="w-meta">${pri}${due}${who}${st}</div>
+      ${eq ? `<div class="w-eq">🖨️ ${eq}</div>` : ""}</div>`;
+  };
+  const html = open.length ? orderedBuckets(open).map(bk => { const list = open.filter(t => t.bucket === bk);
+      return `<div class="w-bucket"><h3>${icon(bk)} ${esc(bk)} <span class="n">${list.length}</span></h3><div class="w-grid">${list.map(card).join("")}</div></div>`; }).join("")
+    : `<div class="w-empty">🎉 אין משימות פתוחות</div>`;
+  const tr = $("wTrack");
+  tr.innerHTML = `<div class="w-copy">${html}</div>`;
+  // גולל רק אם התוכן ארוך מהמסך; עותק שני יוצר לולאה רציפה
+  const loop = tr.firstElementChild.offsetHeight > $("wView").clientHeight;
+  if (loop) tr.insertAdjacentHTML("beforeend", `<div class="w-copy" aria-hidden="true">${html}</div>`);
+  tr.dataset.loop = loop ? "1" : "";
+  if (!loop) { wallY = 0; tr.style.transform = ""; }
+  $("wUpd").textContent = wallLoadedAt ? `עודכן ב-${wallLoadedAt}${dirty ? " · כולל שינויים שלא נשמרו" : ""} · מתעדכן כל 2 דקות` : "";
+}
+function wallTick(ts) {
+  if (!WALL) return;
+  const tr = $("wTrack"), dt = wallLast ? Math.min(ts - wallLast, 100) : 0; wallLast = ts;
+  if (tr.dataset.loop) {
+    const h = tr.firstElementChild.offsetHeight;
+    if (h) { wallY = (wallY + WALL_SPEED * dt / 1000) % h; tr.style.transform = `translateY(${-wallY}px)`; }
+  }
+  wallRaf = requestAnimationFrame(wallTick);
+}
+function wallClock() {
+  if (!WALL) return;
+  const now = new Date();
+  $("wClock").textContent = now.toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+  $("wDate").textContent = now.toLocaleDateString("he-IL", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+async function wallRefresh() {
+  if (!WALL) return;
+  if (!dirty && !pending && token) await load();  // לא דורסים שינויים שלא נשמרו
+  wallLoadedAt = hhmm();
+  renderWall();
+}
+async function wallWake() { try { if (WALL && document.visibilityState === "visible") wallLock = await navigator.wakeLock?.request("screen"); } catch {} }
+function wallUi() { $("wall").classList.add("show-ui"); clearTimeout(wallUiT); wallUiT = setTimeout(() => $("wall").classList.remove("show-ui"), 3000); }
+function wallFull() { document.fullscreenElement ? document.exitFullscreen?.() : $("wall").requestFullscreen?.()?.catch(() => {}); }
+function openWall() {
+  WALL = true; $("wall").classList.remove("hidden"); document.body.style.overflow = "hidden";
+  if (!/wall/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + "#wall");
+  wallLoadedAt = wallLoadedAt || hhmm();
+  wallClock(); renderWall(); wallWake(); wallUi();
+  wallLast = 0; cancelAnimationFrame(wallRaf); wallRaf = requestAnimationFrame(wallTick);
+}
+function closeWall() {
+  WALL = false; $("wall").classList.add("hidden"); document.body.style.overflow = "";
+  cancelAnimationFrame(wallRaf); try { wallLock?.release(); } catch {} wallLock = null;
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  history.replaceState(null, "", location.pathname + location.search);
+}
+setInterval(wallClock, 1000);
+setInterval(wallRefresh, WALL_REFRESH);
+setInterval(() => WALL && renderWall(), 10 * 60 * 1000);  // "היום" / "באיחור" מתעדכנים גם בלי שינוי בנתונים
+document.addEventListener("visibilitychange", wallWake);
+document.addEventListener("keydown", e => {
+  if (!WALL) return;
+  if (e.key === "Escape" && !document.fullscreenElement) closeWall();
+  else if (e.key === "f" || e.key === "F") wallFull();
+});
+["mousemove", "touchstart"].forEach(ev => document.addEventListener(ev, () => WALL && wallUi(), { passive: true }));
+window.addEventListener("resize", () => WALL && renderWall());
+
 // ---------- מצב צוות ----------
 const fmtAt = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("he-IL", { timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", ""); };
 // שדות שהצוות יכול לעדכן, ומי/מתי עדכן (זהה ל-set_status.py)
@@ -1345,6 +1529,7 @@ async function login() {
   }
 }
 function logout(reason) {
+  if (WALL) closeWall();
   storage("del"); token = null; dirty = false; ls.del(ROLE_KEY); TEAM = false; PREVIEW = false;
   document.body.classList.remove("pv-mode", "team-mode");
   ["app", "actions", "logoutBtn"].forEach(id => $(id).classList.add("hidden"));
@@ -1358,7 +1543,7 @@ function start() {
   $("teamLogin").classList.add("hidden");
   $("login").classList.add("hidden");
   ["app", "actions", "logoutBtn"].forEach(id => $(id).classList.remove("hidden"));
-  load();
+  load().then(() => { if (wantWall) { wantWall = false; wallLoadedAt = hhmm(); openWall(); } });
 }
 
 // מצב תצוגה: אוטומטי (לפי המחשב) → כהה → בהיר
