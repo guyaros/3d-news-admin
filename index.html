@@ -214,8 +214,8 @@
   .team-mode .team-only{display:inline-flex!important}
   .team-mode .admin-only,.team-mode .preview,.team-mode #availPanel,.team-mode #msgPanel,.team-mode #settingsPanel,
   .team-mode #saveBtn,.team-mode #pubBtn,.team-mode .f-pub,.team-mode .bucket-head label,.team-mode .add,
-  .team-mode .t-actions,.team-mode .drag,.team-mode #archDoneBtn,.team-mode .arch-btns,.team-mode .d-btn,
-  .team-mode .due-cell label{display:none!important}
+  .team-mode .t-actions,.team-mode .drag,.team-mode #archDoneBtn,.team-mode .arch-btns{display:none!important}
+  .team-mode .row.task .due-cell .d-text{border-color:var(--accent)}
   .team-mode .wrap{grid-template-columns:minmax(0,1fr);max-width:1040px}
   .team-mode .row.task{grid-template-columns:minmax(0,1fr) 224px}
   .team-mode .row.task :is(input,textarea,select):disabled{background:transparent;border-color:transparent;color:var(--text);
@@ -404,7 +404,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "6.0";
+const VERSION = "6.1";
 const UPDATED = "08.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -926,6 +926,8 @@ function addTask(k, t = {}, focus = true) {
       <input type="hidden" data-k="id" value="${esc(t.id || newId())}">
       <input type="hidden" data-k="statusBy" value="${esc(t.statusBy)}">
       <input type="hidden" data-k="statusAt" value="${esc(t.statusAt)}">
+      <input type="hidden" data-k="dueBy" value="${esc(t.dueBy)}">
+      <input type="hidden" data-k="dueAt" value="${esc(t.dueAt)}">
     </div>
     <div class="t-actions">
       <button class="ghost" title="מחיקה" onclick="this.closest('.row').remove();changed()">✕</button>
@@ -933,9 +935,11 @@ function addTask(k, t = {}, focus = true) {
     </div>`;
   bucketEl.querySelector(".rows").append(el);
   const sel = el.querySelector(".f-status"); sel.dataset.cur = st;
-  if (TEAM) {  // הצוות יכול לשנות רק סטטוס
-    el.querySelectorAll("input, textarea, select").forEach(x => { if (x !== sel) x.disabled = true; });
-    if (!t.id) { sel.disabled = true; sel.title = "המשימה עוד לא נשמרה בגרסה החדשה. מנהל הלוח צריך ללחוץ 'שמור לוח'."; }
+  el.querySelector(".due-cell").dataset.cur = t.due || "";
+  if (TEAM) {  // הצוות יכול לשנות רק סטטוס ומועד
+    const open = x => x === sel || x.matches(".d-text, .d-iso, .d-btn, [data-k=dueFuture]");
+    el.querySelectorAll("input, textarea, select, .d-btn").forEach(x => { if (!open(x)) x.disabled = true; });
+    if (!t.id) el.querySelectorAll("select, input, .d-btn").forEach(x => { x.disabled = true; x.title = "המשימה עוד לא נשמרה בגרסה החדשה. מנהל הלוח צריך ללחוץ 'שמור לוח'."; });
   }
   setBy(el);
   el.querySelectorAll("textarea.grow").forEach(autosize);
@@ -993,8 +997,21 @@ window.addEventListener("resize", () => { clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => document.querySelectorAll("textarea.grow").forEach(autosize), 150); });
 document.addEventListener("input", e => {
   if (!e.target.closest("#app") || e.target.closest(".manage") || e.target.closest(".toolbar") || e.target.closest("#settingsPanel")) return;
-  if (TEAM) { if (e.target.dataset.k === "status") { e.target.className = "f-status s-" + e.target.value; teamSetStatus(e.target); } return; }
-  if (e.target.dataset.k === "status") { const r = e.target.closest(".row"); r.querySelector("[data-k=statusBy]").value = ""; r.querySelector("[data-k=statusAt]").value = ""; setBy(r); }
+  if (TEAM) {
+    const r = e.target.closest(".row.task"); if (!r) return;
+    if (e.target.dataset.k === "status") { e.target.className = "f-status s-" + e.target.value; teamUpdate(r, "status", e.target.value); }
+    else if (e.target.dataset.k === "dueFuture") {
+      const cell = e.target.closest(".due-cell"); cell.classList.toggle("is-future", e.target.checked);
+      if (e.target.checked) { cell.querySelector(".f-due").value = ""; cell.querySelector(".d-text").value = ""; }
+      teamUpdate(r, "due", getDue(r));
+    }
+    else if (e.target.classList.contains("d-iso")) teamUpdate(r, "due", getDue(r));  // נבחר בלוח השנה
+    return;  // הקלדה בשדה התאריך נשלחת ביציאה מהשדה (change)
+  }
+  if (e.target.dataset.k === "status" || e.target.closest(".due-cell")) {
+    const r = e.target.closest(".row"), [by, at] = TRACK[e.target.dataset.k === "status" ? "status" : "due"];
+    r.querySelector(`[data-k=${by}]`).value = ""; r.querySelector(`[data-k=${at}]`).value = ""; setBy(r);
+  }
   if (e.target.classList.contains("pub-all")) {
     e.target.closest(".bucket").querySelectorAll(".rows > .row:not(.fhide) .f-pub").forEach(x => x.checked = e.target.checked);
   }
@@ -1012,15 +1029,32 @@ window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); 
 
 // ---------- מצב צוות ----------
 const fmtAt = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("he-IL", { timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", ""); };
+// שדות שהצוות יכול לעדכן, ומי/מתי עדכן (זהה ל-set_status.py)
+const TRACK = { status: ["statusBy", "statusAt"], due: ["dueBy", "dueAt"] };
+const FIELD_DEFAULT = { status: "לא התחיל", due: "" };
+const getDue = row => row.querySelector("[data-k=dueFuture]").checked ? FUTURE : row.querySelector(".f-due").value;
+const fieldVal = (row, f) => f === "status" ? row.querySelector(".f-status").value : getDue(row);
 function setBy(row, override) {
-  const by = row.querySelector("[data-k=statusBy]")?.value, at = row.querySelector("[data-k=statusAt]")?.value;
-  row.querySelector(".t-by").textContent = override || (by ? `עודכן ע״י ${by} · ${fmtAt(at)}` : "");
+  const g = k => row.querySelector(`[data-k=${k}]`)?.value || "";
+  const last = [["סטטוס", g("statusBy"), g("statusAt")], ["מועד", g("dueBy"), g("dueAt")]].filter(x => x[1]).sort((a, b) => a[2] < b[2] ? 1 : -1)[0];
+  row.querySelector(".t-by").textContent = override || (last ? `${last[0]} עודכן ע״י ${last[1]} · ${fmtAt(last[2])}` : "");
 }
-function setStatus(row, st, by, at) {
-  const sel = row.querySelector(".f-status");
-  sel.value = st; sel.className = "f-status s-" + st; sel.dataset.cur = st;
-  row.querySelector("[data-k=statusBy]").value = by || ""; row.querySelector("[data-k=statusAt]").value = at || "";
-  row.classList.toggle("done", st === "הושלם"); setBy(row);
+function showField(row, f, v) {  // מציג ערך בשדה (בלי לשנות את "עודכן ע״י")
+  if (f === "status") {
+    const sel = row.querySelector(".f-status");
+    sel.value = v; sel.className = "f-status s-" + v; sel.dataset.cur = v; row.classList.toggle("done", v === "הושלם");
+  } else {
+    const cell = row.querySelector(".due-cell"), fut = v === FUTURE;
+    cell.classList.toggle("is-future", fut); cell.dataset.cur = v;
+    row.querySelector("[data-k=dueFuture]").checked = fut;
+    row.querySelector(".f-due").value = fut ? "" : v; row.querySelector(".d-text").value = fut ? "" : isoToDMY(v);
+    row.querySelector(".dfield").classList.remove("bad");
+  }
+}
+function setField(row, f, v, by, at) {
+  showField(row, f, v);
+  row.querySelector(`[data-k=${TRACK[f][0]}]`).value = by || ""; row.querySelector(`[data-k=${TRACK[f][1]}]`).value = at || "";
+  setBy(row);
 }
 function setMe(v) { v ? ls.set(ME_KEY, v) : ls.del(ME_KEY); }
 function fillMe() {
@@ -1033,27 +1067,39 @@ function showMine() {
   $("fOwner").value = $("fOwner").value === me ? "" : me; applyFilters();
 }
 let pending = 0;
-async function teamSetStatus(sel) {
-  const row = sel.closest(".row"), me = ls.get(ME_KEY), id = row.querySelector("[data-k=id]").value, st = sel.value;
-  const revert = () => { sel.value = sel.dataset.cur; sel.className = "f-status s-" + sel.value; setBy(row); };
+// עדכון שדה אחד (סטטוס / מועד) דרך GitHub Actions: הצוות לא כותב קבצים בעצמו
+async function teamUpdate(row, f, v) {
+  const me = ls.get(ME_KEY), id = row.querySelector("[data-k=id]").value;
+  const cur = f === "status" ? row.querySelector(".f-status").dataset.cur : row.querySelector(".due-cell").dataset.cur;
+  if (v === cur) return;
+  const revert = () => { showField(row, f, cur); setBy(row); };
   if (!me || !team.includes(me)) { revert(); alert("בחרו קודם את השם שלכם בשדה 👤 אני (למעלה)."); return $("meSel").focus(); }
+  const ctl = f === "status" ? [row.querySelector(".f-status")] : [...row.querySelectorAll(".due-cell input, .due-cell .d-btn")];
+  const what = f === "status" ? "הסטטוס" : "המועד", shown = f === "status" ? v : v === FUTURE ? "עתידי, ללא מועד" : v ? isoToDMY(v) : "ללא תאריך";
   const req = newId();
-  sel.disabled = true; pending++; setBy(row, "⏳ מעדכן…"); status("info", "⏳ מעדכן סטטוס… (כחצי דקה)");
+  ctl.forEach(x => x.disabled = true); pending++; setBy(row, "⏳ מעדכן…"); status("info", `⏳ מעדכן את ${what}… (כחצי דקה)`);
   try {
     await gh(`/actions/workflows/${STATUS_WF}/dispatches`, { method: "POST",
-      body: JSON.stringify({ ref: "main", inputs: { task_id: id, status: st, who: me, req } }) });
+      body: JSON.stringify({ ref: "main", inputs: { task_id: id, field: f, value: v, who: me, req } }) });
     const run = await waitStatusRun(req);
-    if (!run) { setBy(row, "⏳ בטיפול"); status("info", "העדכון נשלח ועדיין בטיפול. לחצו 'טען מחדש' בעוד דקה כדי לוודא."); }
-    else if (run.conclusion === "success") { setStatus(row, st, me, new Date().toISOString()); status("ok", `✓ הסטטוס עודכן ל"${esc(st)}".`); }
+    if (!run) { showField(row, f, v); setBy(row, "⏳ בטיפול"); status("info", "העדכון נשלח ועדיין בטיפול. לחצו 'טען מחדש' בעוד דקה כדי לוודא."); }
+    else if (run.conclusion === "success") { setField(row, f, v, me, new Date().toISOString()); status("ok", `✓ ${what} עודכן: ${esc(shown)}.`); }
     else { revert(); status("err", "העדכון נכשל. ייתכן שהמשימה שונתה או הוסרה בינתיים. לחצו 'טען מחדש' ונסו שוב."); }
   } catch (e) {
     revert();
-    status("err", [403, 404].includes(e.status) ? "למפתח הצוות אין הרשאה לעדכן סטטוס. פנו למנהל הלוח."
+    status("err", [403, 404].includes(e.status) ? "למפתח הצוות אין הרשאה לעדכן. פנו למנהל הלוח."
       : e.status === 401 ? "הגישה בוטלה. בקשו לינק חדש ממנהל הלוח." : "העדכון נכשל: " + esc(e.message));
   }
-  sel.disabled = false; pending--;
+  ctl.forEach(x => x.disabled = false); pending--;
   renderPreview();
 }
+// הקלדת תאריך: נשלח ביציאה מהשדה, רק אם התאריך תקין
+document.addEventListener("change", e => {
+  if (!TEAM || !e.target.classList.contains("d-text")) return;
+  const f = e.target.closest(".dfield"), r = e.target.closest(".row.task");
+  if (!r || f.classList.contains("bad")) return;
+  teamUpdate(r, "due", getDue(r));
+});
 async function waitStatusRun(req) {
   for (let i = 0; i < 40; i++) {
     await new Promise(r => setTimeout(r, POLL_MS));
@@ -1164,7 +1210,7 @@ async function load() {
 }
 function reload() { if (!dirty || confirm("יש שינויים שלא נשמרו. לטעון מחדש ולאבד אותם?")) load(); }
 let baseBoard = null;  // board.json כפי שנטען - כדי לזהות מה הצוות שינה מאז
-const stripStatus = b => JSON.stringify({ ...b, tasks: (b.tasks || []).map(({ status, statusBy, statusAt, ...t }) => t) });
+const stripStatus = b => JSON.stringify({ ...b, tasks: (b.tasks || []).map(({ status, statusBy, statusAt, due, dueBy, dueAt, ...t }) => t) });
 const rowById = id => [...document.querySelectorAll(".bucket .rows > .row")].find(r => r.querySelector("[data-k=id]")?.value === id);
 async function saveBoard(message) {
   const merged = [];
@@ -1172,15 +1218,16 @@ async function saveBoard(message) {
     const remoteText = await readFile("board.json");  // גם מביא sha עדכני
     if (remoteText.trim()) {
       const remote = JSON.parse(remoteText);
-      // שינוי שאינו סטטוס (למשל שמירה מחלון אחר) - לא דורסים
+      // שינוי שאינו סטטוס/מועד (למשל שמירה מחלון אחר) - לא דורסים
       if (stripStatus(remote) !== stripStatus(baseBoard)) { const e = new Error("conflict"); e.status = 409; throw e; }
       const base = Object.fromEntries((baseBoard.tasks || []).filter(t => t.id).map(t => [t.id, t]));
       (remote.tasks || []).forEach(rt => {
-        const bt = base[rt.id];
-        if (!rt.id || !bt || (rt.statusAt || "") === (bt.statusAt || "")) return;
-        const row = rowById(rt.id); if (!row) return;  // המנהל מחק / העביר לארכיון
-        if (row.querySelector(".f-status").value !== (bt.status || "לא התחיל")) return;  // גם המנהל שינה - נשאר שלו
-        setStatus(row, rt.status, rt.statusBy, rt.statusAt); merged.push(rt.statusBy || "?");
+        const bt = base[rt.id], row = bt && rowById(rt.id); if (!row) return;  // המנהל מחק / העביר לארכיון
+        for (const [f, [by, at]] of Object.entries(TRACK)) {
+          if ((rt[at] || "") === (bt[at] || "")) continue;  // הצוות לא שינה את השדה הזה
+          if (fieldVal(row, f) !== (bt[f] || FIELD_DEFAULT[f])) continue;  // גם המנהל שינה - נשאר שלו
+          setField(row, f, rt[f] || FIELD_DEFAULT[f], rt[by], rt[at]); merged.push(rt[by] || "?");
+        }
       });
     }
   }
@@ -1189,7 +1236,7 @@ async function saveBoard(message) {
   baseBoard = JSON.parse(JSON.stringify(b));
   return merged;
 }
-const mergedNote = m => !m.length ? "" : `${m.length === 1 ? " שולב עדכון סטטוס אחד" : ` שולבו ${m.length} עדכוני סטטוס`} מהצוות (${[...new Set(m)].map(esc).join(", ")}).`;
+const mergedNote = m => !m.length ? "" : `${m.length === 1 ? " שולב עדכון אחד" : ` שולבו ${m.length} עדכונים`} מהצוות (${[...new Set(m)].map(esc).join(", ")}).`;
 function busy(on) { ["saveBtn", "pubBtn"].forEach(id => $(id).disabled = on); if (!on) updateSaveBtn(); }
 function apiError(e, what) {
   if (e.status === 409) status("err", "הלוח נשמר בינתיים מחלון אחר. לחצו 'טען מחדש' (השינויים שלכם יאבדו) ונסו שוב.");
