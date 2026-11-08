@@ -7,7 +7,7 @@
 <title>לוח ניהול משימות</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#f3f4f8; --card:#fff; --line:#e3e5ec; --text:#1c1d22; --sub:#6b6f7b;
@@ -268,6 +268,7 @@
   #wall .w-msg{margin:.3em 1.4em .2em;padding:.6em 1em;border-radius:.6em;background:#1d2033;border-inline-start:4px solid var(--w-accent);white-space:pre-line}
   #wall .w-view{flex:1;min-height:0;overflow:hidden;position:relative;margin-top:.4em;
         mask-image:linear-gradient(transparent,#000 3%,#000 95%,transparent);-webkit-mask-image:linear-gradient(transparent,#000 3%,#000 95%,transparent)}
+  #wall .w-tilt{height:100%}
   #wall .w-track{padding:0 1.4em;will-change:transform}
   #wall .w-copy{padding-top:.6em}
   #wall .w-bucket{margin-bottom:1.3em}
@@ -292,6 +293,66 @@
   #wall.show-ui .w-ctl{opacity:1;pointer-events:auto}
   #wall .w-ctl button{background:#262a3d;color:#e8eaf1;border:1px solid var(--w-line);font-size:.9em}
   @media(max-width:900px){#wall .w-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}#wall .w-clock{font-size:1.8em}}
+  /* ---------- מסך תצוגה: ערכת "חלל" (כוכבים, כתוביות צהובות בפרספקטיבה, לוחות HUD זוהרים) ---------- */
+  #wall.space{background:#000;--w-card:rgba(8,12,24,.72);--w-line:rgba(79,209,255,.28);--w-sub:#8fb4c9;--w-accent:#4fd1ff;
+        --w-red:#ff3b3b;--w-orange:#ffb12b;--w-green:#4dff88;--w-gray:#3a4a5c;--sw-yellow:#ffe81f}
+  #wall.space::before,#wall.space::after{content:"";position:absolute;inset:-50%;pointer-events:none;z-index:0}
+  #wall.space::before{background-image:
+      radial-gradient(1px 1px at 23px 41px,#fff,transparent),radial-gradient(1px 1px at 97px 173px,#cfe8ff,transparent),
+      radial-gradient(1.5px 1.5px at 151px 61px,#fff,transparent),radial-gradient(1px 1px at 211px 239px,#fff8d0,transparent),
+      radial-gradient(1px 1px at 277px 113px,#fff,transparent),radial-gradient(1.5px 1.5px at 59px 281px,#bfe2ff,transparent);
+    background-size:307px 307px;animation:sw-drift 240s linear infinite;opacity:.9}
+  #wall.space::after{background-image:
+      radial-gradient(2px 2px at 71px 89px,#fff,transparent),radial-gradient(1.5px 1.5px at 331px 401px,#fff,transparent),
+      radial-gradient(2px 2px at 457px 157px,#ffe9a8,transparent),radial-gradient(1.5px 1.5px at 199px 463px,#d6ecff,transparent);
+    background-size:541px 541px;animation:sw-drift 140s linear infinite,sw-twinkle 4s ease-in-out infinite alternate}
+  @keyframes sw-drift{to{transform:translate(18%,9%)}}
+  @keyframes sw-twinkle{from{opacity:.45}to{opacity:1}}
+  #wall.space > *{position:relative;z-index:1}
+  #wall.space .w-ctl{position:absolute;z-index:3}
+  #wall.space .w-top{border-bottom:1px solid var(--w-line);box-shadow:0 1px 18px rgba(79,209,255,.15)}
+  #wall.space .w-logo{background:none;color:var(--sw-yellow);border:2px solid var(--sw-yellow);font-family:Orbitron,Heebo,sans-serif;letter-spacing:.12em;
+        box-shadow:0 0 12px rgba(255,232,31,.45),inset 0 0 8px rgba(255,232,31,.25)}
+  #wall.space .w-title{color:var(--sw-yellow);font-weight:800;letter-spacing:.04em;text-shadow:0 0 14px rgba(255,232,31,.45)}
+  #wall.space .w-date{color:var(--w-accent)}
+  #wall.space .w-date::after{content:" · במעבדה לא רחוקה מכאן…";color:var(--w-sub);font-style:italic}
+  #wall.space .w-clock{font-family:Orbitron,Heebo,sans-serif;color:var(--sw-yellow);text-shadow:0 0 18px rgba(255,232,31,.6)}
+  #wall.space .w-kpi{background:rgba(6,14,28,.6);border:1px solid var(--w-line);border-top-width:1px;border-radius:2px;position:relative;
+        box-shadow:inset 0 0 22px rgba(79,209,255,.08)}
+  #wall.space .w-kpi::before,#wall.space .w-kpi::after{content:"";position:absolute;width:14px;height:14px;border:2px solid var(--w-accent)}
+  #wall.space .w-kpi::before{top:-2px;right:-2px;border-left:0;border-bottom:0}
+  #wall.space .w-kpi::after{bottom:-2px;left:-2px;border-right:0;border-top:0}
+  #wall.space .w-kpi b{font-family:Orbitron,Heebo,sans-serif;color:var(--w-accent);text-shadow:0 0 12px currentColor}
+  #wall.space .w-kpi.red b{color:var(--w-red)} #wall.space .w-kpi.orange b{color:var(--w-orange)} #wall.space .w-kpi.green b{color:var(--w-green)}
+  #wall.space .w-kpi.zero b{color:var(--w-sub);text-shadow:none}
+  #wall.space .w-kpi span{text-transform:uppercase;letter-spacing:.05em}
+  #wall.space .w-chip{background:rgba(6,14,28,.7);border-radius:2px}
+  #wall.space .w-chip.away{box-shadow:0 0 10px rgba(255,59,59,.4)}
+  #wall.space .w-msg{background:rgba(255,232,31,.06);border-inline-start-color:var(--sw-yellow);color:var(--sw-yellow);border-radius:2px}
+  /* הכתוביות: מוטות לאחור כמו פתיח של סרט חלל, ונעלמות למרחק */
+  #wall.space .w-view{perspective:1100px;perspective-origin:50% 40%;
+        mask-image:linear-gradient(transparent,rgba(0,0,0,.35) 8%,#000 30%,#000 96%,transparent);
+        -webkit-mask-image:linear-gradient(transparent,rgba(0,0,0,.35) 8%,#000 30%,#000 96%,transparent)}
+  #wall.space .w-tilt{transform-origin:50% 100%;transform:rotateX(22deg);transform-style:preserve-3d}
+  #wall.space .w-bucket h3{color:var(--sw-yellow);font-weight:800;letter-spacing:.06em;text-shadow:0 0 12px rgba(255,232,31,.4);
+        border-bottom:1px solid rgba(255,232,31,.25);padding-bottom:.2em}
+  #wall.space .w-bucket h3 .n{background:none;border:1px solid var(--sw-yellow);color:var(--sw-yellow);font-family:Orbitron,Heebo,sans-serif}
+  #wall.space .w-card{background:var(--w-card);border:1px solid var(--w-line);border-inline-start:4px solid var(--w-gray);border-radius:3px;
+        box-shadow:inset 0 0 18px rgba(79,209,255,.06)}
+  /* פס בצבע לפי עדיפות, זוהר כמו קרן אור */
+  #wall.space .w-card.p-דחוף{border-inline-start-color:var(--w-red);box-shadow:-3px 0 14px -2px var(--w-red),inset 0 0 18px rgba(255,59,59,.08)}
+  #wall.space .w-card.p-גבוהה{border-inline-start-color:var(--w-orange);box-shadow:-3px 0 14px -2px var(--w-orange)}
+  #wall.space .w-card.p-רגילה{border-inline-start-color:var(--w-accent);box-shadow:-3px 0 12px -3px var(--w-accent)}
+  #wall.space .w-card.p-בהמתנה{border-inline-start-color:var(--w-green)}
+  #wall.space .w-card.late{background:rgba(60,4,10,.6);border-color:rgba(255,59,59,.5)}
+  #wall.space .w-cust{color:var(--sw-yellow)}
+  #wall.space .w-task{color:#e9f4ff}
+  #wall.space .w-meta span{background:rgba(79,209,255,.08);border:1px solid rgba(79,209,255,.18);border-radius:2px}
+  #wall.space .w-meta .late{background:var(--w-red);color:#1a0003;border-color:var(--w-red);box-shadow:0 0 10px var(--w-red)}
+  #wall.space .w-meta .today{background:var(--w-accent);color:#001019;border-color:var(--w-accent);box-shadow:0 0 10px var(--w-accent)}
+  #wall.space .w-foot{border-top:1px solid var(--w-line)}
+  #wall.space .w-ctl button{background:rgba(6,14,28,.9);border-color:var(--w-accent);color:var(--w-accent)}
+  @media (prefers-reduced-motion: reduce){#wall.space::before,#wall.space::after{animation:none}}
   .hidden{display:none!important}
 </style>
 </head>
@@ -450,9 +511,10 @@
   <div class="w-kpis" id="wKpis"></div>
   <div class="w-strip" id="wAvail"></div>
   <div id="wMsg"></div>
-  <div class="w-view" id="wView"><div class="w-track" id="wTrack"></div></div>
-  <div class="w-foot"><span id="wUpd"></span><span style="flex:1"></span><span>Esc ליציאה · F למסך מלא</span></div>
+  <div class="w-view" id="wView"><div class="w-tilt"><div class="w-track" id="wTrack"></div></div></div>
+  <div class="w-foot"><span id="wUpd"></span><span style="flex:1"></span><span>Esc ליציאה · F למסך מלא · S ערכת חלל</span></div>
   <div class="w-ctl">
+    <button type="button" onclick="wallTheme()" id="wThemeBtn">🌌 ערכת חלל</button>
     <button type="button" onclick="wallFull()">⛶ מסך מלא</button>
     <button type="button" onclick="closeWall()">✕ יציאה</button>
   </div>
@@ -480,7 +542,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "6.3";
+const VERSION = "6.4";
 const UPDATED = "08.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -1114,6 +1176,19 @@ window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); 
 // אפשר לפתוח ישר: כתובת הלוח + #wall (למשל במחשב שמחובר לטלוויזיה).
 let WALL = false, wantWall = /(^|[#&])wall\b/.test(location.hash), wallY = 0, wallLast = 0, wallRaf = 0, wallLock = null, wallUiT = 0, wallLoadedAt = null;
 const WALL_SPEED = 28, WALL_REFRESH = 2 * 60 * 1000;  // פיקסלים לשנייה; רענון
+// ערכת "חלל": נשמרת בדפדפן הזה; או בכתובת: #wall-space
+const WALL_THEME_KEY = "3dnews-wall-theme";
+let wallSpace = /wall-space/.test(location.hash) || ls.get(WALL_THEME_KEY) === "space";
+function applyWallTheme() {
+  $("wall").classList.toggle("space", wallSpace);
+  $("wThemeBtn").textContent = wallSpace ? "🖥️ ערכה רגילה" : "🌌 ערכת חלל";
+}
+function wallTheme() {
+  wallSpace = !wallSpace; wallSpace ? ls.set(WALL_THEME_KEY, "space") : ls.del(WALL_THEME_KEY);
+  if (WALL) history.replaceState(null, "", location.pathname + location.search + (wallSpace ? "#wall-space" : "#wall"));
+  applyWallTheme(); renderWall();
+}
+const wallTransform = y => `translateY(${-y}px)`;  // ההטיה עצמה ב-CSS (.w-tilt)
 const PRI_RANK = t => (PRIORITIES[t.priority] || [2])[0];
 const hhmm = () => new Date().toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 function wallData() {
@@ -1170,10 +1245,11 @@ function renderWall() {
   const tr = $("wTrack");
   tr.innerHTML = `<div class="w-copy">${html}</div>`;
   // גולל רק אם התוכן ארוך מהמסך; עותק שני יוצר לולאה רציפה
-  const loop = tr.firstElementChild.offsetHeight > $("wView").clientHeight;
+  const loop = tr.firstElementChild.offsetHeight > $("wView").clientHeight * (wallSpace ? 0.8 : 1);
   if (loop) tr.insertAdjacentHTML("beforeend", `<div class="w-copy" aria-hidden="true">${html}</div>`);
   tr.dataset.loop = loop ? "1" : "";
-  if (!loop) { wallY = 0; tr.style.transform = ""; }
+  if (!loop) wallY = 0;
+  tr.style.transform = wallTransform(wallY);
   $("wUpd").textContent = wallLoadedAt ? `עודכן ב-${wallLoadedAt}${dirty ? " · כולל שינויים שלא נשמרו" : ""} · מתעדכן כל 2 דקות` : "";
 }
 function wallTick(ts) {
@@ -1181,7 +1257,7 @@ function wallTick(ts) {
   const tr = $("wTrack"), dt = wallLast ? Math.min(ts - wallLast, 100) : 0; wallLast = ts;
   if (tr.dataset.loop) {
     const h = tr.firstElementChild.offsetHeight;
-    if (h) { wallY = (wallY + WALL_SPEED * dt / 1000) % h; tr.style.transform = `translateY(${-wallY}px)`; }
+    if (h) { wallY = (wallY + WALL_SPEED * dt / 1000) % h; tr.style.transform = wallTransform(wallY); }
   }
   wallRaf = requestAnimationFrame(wallTick);
 }
@@ -1202,7 +1278,8 @@ function wallUi() { $("wall").classList.add("show-ui"); clearTimeout(wallUiT); w
 function wallFull() { document.fullscreenElement ? document.exitFullscreen?.() : $("wall").requestFullscreen?.()?.catch(() => {}); }
 function openWall() {
   WALL = true; $("wall").classList.remove("hidden"); document.body.style.overflow = "hidden";
-  if (!/wall/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + "#wall");
+  if (!/wall/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + (wallSpace ? "#wall-space" : "#wall"));
+  applyWallTheme();
   wallLoadedAt = wallLoadedAt || hhmm();
   wallClock(); renderWall(); wallWake(); wallUi();
   wallLast = 0; cancelAnimationFrame(wallRaf); wallRaf = requestAnimationFrame(wallTick);
@@ -1220,7 +1297,8 @@ document.addEventListener("visibilitychange", wallWake);
 document.addEventListener("keydown", e => {
   if (!WALL) return;
   if (e.key === "Escape" && !document.fullscreenElement) closeWall();
-  else if (e.key === "f" || e.key === "F") wallFull();
+  else if (e.code === "KeyF") wallFull();  // לפי מקש, עובד גם במקלדת עברית
+  else if (e.code === "KeyS") wallTheme();
 });
 ["mousemove", "touchstart"].forEach(ev => document.addEventListener(ev, () => WALL && wallUi(), { passive: true }));
 window.addEventListener("resize", () => WALL && renderWall());
