@@ -248,6 +248,17 @@
         font-size:clamp(14px,1.05vw,22px);cursor:none;overflow:hidden;
         --w-card:#181b24;--w-line:#2a2e3b;--w-sub:#9097a8;--w-accent:#8b8ff0;--w-red:#ff6b81;--w-orange:#ffb44d;--w-green:#5fd394;--w-gray:#6b7182}
   #wall.show-ui,#wall.show-ui button{cursor:var(--ship,default)}  /* סמן חללית; נעלם אחרי 3 שניות בלי תנועה */
+  #wall{user-select:none;-webkit-user-select:none}
+  /* טיל: נורה מהחרטום של החללית (למעלה-שמאלה), מתפוצץ בסוף המסלול */
+  #wall.space .w-shot{position:absolute;z-index:4;width:44px;height:7px;margin-top:-3.5px;border-radius:3px;pointer-events:none;transform-origin:0 50%;
+        background:linear-gradient(90deg,#fff 0,#fff6c0 18%,#ffb12b 45%,rgba(255,80,40,.6) 75%,transparent);
+        box-shadow:0 0 8px #ffb12b,0 0 16px rgba(255,120,40,.7)}
+  #wall.space .w-boom{position:absolute;z-index:4;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;pointer-events:none;
+        background:radial-gradient(circle,#fff 0,#ffe81f 25%,#ff7a1a 50%,rgba(255,40,40,.4) 70%,transparent 72%)}
+  #wall.space .w-hold{position:absolute;z-index:3;bottom:2.4em;left:50%;transform:translateX(-50%);display:none;font-family:Orbitron,Heebo,sans-serif;
+        color:#ffe81f;border:1px solid #ffe81f;background:rgba(0,0,0,.7);padding:.2em 1em;border-radius:2px;letter-spacing:.1em;
+        box-shadow:0 0 12px rgba(255,232,31,.4)}
+  #wall.space.hold .w-hold{display:block}
   #wall .w-top{display:flex;align-items:center;gap:1.2em;padding:.8em 1.4em;border-bottom:1px solid var(--w-line)}
   #wall .w-logo{background:var(--w-accent);color:#14152a;font-weight:700;border-radius:.4em;padding:.25em .6em;direction:ltr}
   #wall .w-title{font-size:1.45em;font-weight:700;line-height:1.2}
@@ -513,6 +524,7 @@
   <div id="wMsg"></div>
   <div class="w-view" id="wView"><div class="w-tilt"><div class="w-track" id="wTrack"></div></div></div>
   <div class="w-foot"><span id="wUpd"></span><span style="flex:1"></span><span>Esc ליציאה · F למסך מלא</span></div>
+  <div class="w-hold">⏸ HOLD · עצירה</div>
   <div class="w-ctl">
     <button type="button" onclick="wallFull()">⛶ מסך מלא</button>
     <button type="button" onclick="closeWall()">✕ יציאה</button>
@@ -541,7 +553,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "6.6";
+const VERSION = "6.7";
 const UPDATED = "08.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -1243,7 +1255,7 @@ function renderWall() {
 function wallTick(ts) {
   if (!WALL) return;
   const tr = $("wTrack"), dt = wallLast ? Math.min(ts - wallLast, 100) : 0; wallLast = ts;
-  if (tr.dataset.loop) {
+  if (tr.dataset.loop && !wallHold) {  // לחצן שמאלי לחוץ = הגלילה עוצרת
     const h = tr.firstElementChild.offsetHeight;
     if (h) { wallY = (wallY + WALL_SPEED * dt / 1000) % h; tr.style.transform = wallTransform(wallY); }
   }
@@ -1296,6 +1308,35 @@ document.addEventListener("keydown", e => {
   else if (e.code === "KeyF") wallFull();  // לפי מקש, עובד גם במקלדת עברית
 });
 ["mousemove", "touchstart"].forEach(ev => document.addEventListener(ev, () => WALL && wallUi(), { passive: true }));
+// לחיצה שמאלית: יורה טיל; כל עוד הלחצן לחוץ, המשימות לא זזות
+let wallHold = false;
+function wallFire(x, y) {
+  const wall = $("wall"), r = wall.getBoundingClientRect(); x -= r.left; y -= r.top;
+  const d = Math.max(Math.min(x, y), 0) * 0.85 + 120;  // עד קרוב לקצה המסך, באלכסון למעלה-שמאלה
+  const shot = document.createElement("div"); shot.className = "w-shot";
+  shot.style.left = x + "px"; shot.style.top = y + "px";
+  wall.append(shot);
+  const fly = shot.animate([{ transform: "translate(0,0) rotate(45deg)", opacity: 1 },
+                            { transform: `translate(${-d}px,${-d}px) rotate(45deg)`, opacity: 1 }],
+                           { duration: 260 + d * 0.9, easing: "cubic-bezier(.3,0,.9,.6)" });
+  fly.onfinish = () => {
+    shot.remove();
+    const boom = document.createElement("div"); boom.className = "w-boom";
+    boom.style.left = (x - d) + "px"; boom.style.top = (y - d) + "px";
+    wall.append(boom);
+    boom.animate([{ transform: "scale(.2)", opacity: 1 }, { transform: "scale(2.4)", opacity: 0 }],
+                 { duration: 420, easing: "ease-out" }).onfinish = () => boom.remove();
+  };
+}
+function wallHoldOn(on) {
+  wallHold = on; $("wall").classList.toggle("hold", on);
+  if (on) { wallUi(); clearTimeout(wallUiT); } else wallUi();  // בזמן לחיצה הסמן נשאר גלוי
+}
+$("wall").addEventListener("pointerdown", e => {
+  if (!WALL || e.button !== 0 || e.target.closest(".w-ctl")) return;
+  e.preventDefault(); wallFire(e.clientX, e.clientY); wallHoldOn(true);
+});
+["pointerup", "pointercancel", "blur"].forEach(ev => window.addEventListener(ev, () => wallHold && wallHoldOn(false)));
 window.addEventListener("resize", () => WALL && renderWall());
 
 // ---------- מצב צוות ----------
