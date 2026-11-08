@@ -502,7 +502,7 @@
 </div>
 
 <!-- מסך תצוגה -->
-<div id="wall" class="hidden">
+<div id="wall" class="space hidden">
   <div class="w-top">
     <div class="w-logo">3DP-ST</div>
     <div><div class="w-title">צוות תמיכה מדפסות תלת-ממד · משימות פתוחות</div><div class="w-date" id="wDate"></div></div>
@@ -512,9 +512,8 @@
   <div class="w-strip" id="wAvail"></div>
   <div id="wMsg"></div>
   <div class="w-view" id="wView"><div class="w-tilt"><div class="w-track" id="wTrack"></div></div></div>
-  <div class="w-foot"><span id="wUpd"></span><span style="flex:1"></span><span>Esc ליציאה · F למסך מלא · S ערכת חלל</span></div>
+  <div class="w-foot"><span id="wUpd"></span><span style="flex:1"></span><span>Esc ליציאה · F למסך מלא</span></div>
   <div class="w-ctl">
-    <button type="button" onclick="wallTheme()" id="wThemeBtn">🌌 ערכת חלל</button>
     <button type="button" onclick="wallFull()">⛶ מסך מלא</button>
     <button type="button" onclick="closeWall()">✕ יציאה</button>
   </div>
@@ -542,7 +541,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "6.4";
+const VERSION = "6.5";
 const UPDATED = "08.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -1176,18 +1175,7 @@ window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); 
 // אפשר לפתוח ישר: כתובת הלוח + #wall (למשל במחשב שמחובר לטלוויזיה).
 let WALL = false, wantWall = /(^|[#&])wall\b/.test(location.hash), wallY = 0, wallLast = 0, wallRaf = 0, wallLock = null, wallUiT = 0, wallLoadedAt = null;
 const WALL_SPEED = 28, WALL_REFRESH = 2 * 60 * 1000;  // פיקסלים לשנייה; רענון
-// ערכת "חלל": נשמרת בדפדפן הזה; או בכתובת: #wall-space
-const WALL_THEME_KEY = "3dnews-wall-theme";
-let wallSpace = /wall-space/.test(location.hash) || ls.get(WALL_THEME_KEY) === "space";
-function applyWallTheme() {
-  $("wall").classList.toggle("space", wallSpace);
-  $("wThemeBtn").textContent = wallSpace ? "🖥️ ערכה רגילה" : "🌌 ערכת חלל";
-}
-function wallTheme() {
-  wallSpace = !wallSpace; wallSpace ? ls.set(WALL_THEME_KEY, "space") : ls.del(WALL_THEME_KEY);
-  if (WALL) history.replaceState(null, "", location.pathname + location.search + (wallSpace ? "#wall-space" : "#wall"));
-  applyWallTheme(); renderWall();
-}
+// עיצוב: ערכת "חלל" (CSS של #wall.space)
 const wallTransform = y => `translateY(${-y}px)`;  // ההטיה עצמה ב-CSS (.w-tilt)
 const PRI_RANK = t => (PRIORITIES[t.priority] || [2])[0];
 const hhmm = () => new Date().toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
@@ -1245,7 +1233,7 @@ function renderWall() {
   const tr = $("wTrack");
   tr.innerHTML = `<div class="w-copy">${html}</div>`;
   // גולל רק אם התוכן ארוך מהמסך; עותק שני יוצר לולאה רציפה
-  const loop = tr.firstElementChild.offsetHeight > $("wView").clientHeight * (wallSpace ? 0.8 : 1);
+  const loop = tr.firstElementChild.offsetHeight > $("wView").clientHeight * 0.8;  // ההטיה מראה יותר תוכן מגובה המסך
   if (loop) tr.insertAdjacentHTML("beforeend", `<div class="w-copy" aria-hidden="true">${html}</div>`);
   tr.dataset.loop = loop ? "1" : "";
   if (!loop) wallY = 0;
@@ -1278,8 +1266,7 @@ function wallUi() { $("wall").classList.add("show-ui"); clearTimeout(wallUiT); w
 function wallFull() { document.fullscreenElement ? document.exitFullscreen?.() : $("wall").requestFullscreen?.()?.catch(() => {}); }
 function openWall() {
   WALL = true; $("wall").classList.remove("hidden"); document.body.style.overflow = "hidden";
-  if (!/wall/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + (wallSpace ? "#wall-space" : "#wall"));
-  applyWallTheme();
+  if (!/wall/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + "#wall");
   wallLoadedAt = wallLoadedAt || hhmm();
   wallClock(); renderWall(); wallWake(); wallUi();
   wallLast = 0; cancelAnimationFrame(wallRaf); wallRaf = requestAnimationFrame(wallTick);
@@ -1298,7 +1285,6 @@ document.addEventListener("keydown", e => {
   if (!WALL) return;
   if (e.key === "Escape" && !document.fullscreenElement) closeWall();
   else if (e.code === "KeyF") wallFull();  // לפי מקש, עובד גם במקלדת עברית
-  else if (e.code === "KeyS") wallTheme();
 });
 ["mousemove", "touchstart"].forEach(ev => document.addEventListener(ev, () => WALL && wallUi(), { passive: true }));
 window.addEventListener("resize", () => WALL && renderWall());
