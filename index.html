@@ -119,10 +119,11 @@
   .row.task.off{background:var(--muted-row)}
   #msgPanel.off textarea{background:var(--muted-row);color:var(--sub)}
   .row.task.off input:not([type=checkbox]),.row.task.off select{color:var(--sub)}
-  .row.person{grid-template-columns:160px 170px minmax(0,1fr) 140px 140px 32px}
+  .row.person{grid-template-columns:16px 20px 150px 165px minmax(0,1fr) 135px 135px 32px}
+  .row.person.off{background:var(--muted-row)} .row.person.off :is(input:not([type=checkbox]),select){color:var(--sub)}
   select.av-away{color:var(--red)} select.av-limited{color:var(--orange)} select.av-home,select.av-site{color:var(--green)}
   .row.person input.away-now{border-color:var(--orange)}
-  @media(max-width:680px){.row.person{grid-template-columns:1fr 1fr 32px}.row.person .f-reason{grid-column:1/3}}
+  @media(max-width:680px){.row.person{grid-template-columns:16px 20px 1fr 1fr 32px}.row.person .f-reason{grid-column:3/5}.row.person.head{display:none}}
   .row.head{font-size:12px;color:var(--sub);font-weight:500;margin-bottom:2px;padding-top:0;padding-bottom:0}
   @media(max-width:680px){
     .row.task{grid-template-columns:16px 20px minmax(0,1fr) 26px}
@@ -448,11 +449,12 @@
     <div class="panel foldable" id="availPanel" data-fold="__availability__">
       <div class="bucket-head">
         <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">סטטוס זמינות אנשי צוות <span class="count" id="cntU">0</span></h2>
+        <label title="סמן / נקה את כל השורות"><input type="checkbox" class="pub-all"> הכל לפרסום</label>
       </div>
       <div class="fold-body">
         <p class="empty" style="margin:-4px 0 8px">אתר לקוח, מחלה, חופשה</p>
-        <div class="row person head"><div>שם</div><div>זמינות</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
-        <div id="unavail"></div>
+        <div class="row person head"><div></div><div></div><div>שם</div><div>זמינות</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
+        <div id="unavail" class="rows"></div>
         <button class="add" onclick="addPerson()">+ הוסף</button>
       </div>
     </div>
@@ -553,8 +555,8 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "6.7";
-const UPDATED = "08.11.2026";
+const VERSION = "6.8";
+const UPDATED = "09.11.2026";
 
 // חייב להתאים ל-tasks.py
 const PRI_ICON = { "דחוף": "🔴", "גבוהה": "🔴", "רגילה": "🟡", "בהמתנה": "⚪" };  // רמזור ברשימת העדיפות
@@ -769,13 +771,19 @@ function cardBlocks(sel) {
 }
 function selected() {
   const b = collect();
-  return { unavailable: b.unavailable, tasks: b.tasks.filter(t => t.publish), message: b.messagePublish ? b.message : "" };
+  return { unavailable: b.unavailable.filter(p => p.publish), tasks: b.tasks.filter(t => t.publish), message: b.messagePublish ? b.message : "" };
 }
 
 const hasContent = d => d.tasks.length > 0 || !!(d.message && d.message.trim());
 function renderPreview() {
   const all = collect(), d = selected();
-  $("cntU").textContent = d.unavailable.length;
+  {  // זמינות: שורה לא מסומנת נשמרת בלוח אבל לא נשלחת בכרטיס
+    const boxes = [...$("unavail").querySelectorAll(".f-pub")], on = boxes.filter(x => x.checked).length;
+    const pa = $("availPanel").querySelector(".pub-all");
+    pa.checked = boxes.length > 0 && on === boxes.length; pa.indeterminate = on > 0 && on < boxes.length; pa.disabled = !boxes.length;
+    $("cntU").textContent = !boxes.length ? "ריק" : `${on}/${boxes.length} לפרסום`;
+    boxes.forEach(x => x.closest(".row").classList.toggle("off", !x.checked));
+  }
   $("pubBtn").textContent = `שלח ופרסם (${d.tasks.length}${d.message ? " + הודעה" : ""})`;
   $("msgPanel").classList.toggle("off", !$("msgPub").checked);
   document.querySelectorAll(".bucket").forEach(el => {
@@ -1097,7 +1105,9 @@ function addTask(k, t = {}, focus = true) {
 function addPerson(p = {}, focus = true) {
   const el = document.createElement("div"); el.className = "row person";
   const type = p.type in AVAIL ? p.type : guessAvail(p.reason);
-  el.innerHTML = `${peopleSelect("name", p.name, "בחר…")}
+  el.innerHTML = `<span class="drag" title="גרירה לשינוי סדר">⋮⋮</span>
+    <input type="checkbox" class="f-pub" data-k="publish" title="לפרסום" ${p.publish ?? true ? "checked" : ""}>
+    ${peopleSelect("name", p.name, "בחר…")}
     <select data-k="type" class="av-${type}" title="סוג זמינות">${Object.entries(AVAIL).map(([k, [label, ic]]) =>
       `<option value="${k}" ${k === type ? "selected" : ""}>${ic} ${label}</option>`).join("")}</select>
     <input class="f-reason" data-k="reason" value="${esc(p.reason)}" placeholder="חופש / מחלה / כנס / שם לקוח…">
@@ -1106,6 +1116,8 @@ function addPerson(p = {}, focus = true) {
     <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
   $("unavail").append(el);
   if (focus) { el.querySelector("select").focus(); changed(); }
+  if (window.Sortable && !$("unavail").sortable) $("unavail").sortable = Sortable.create($("unavail"), {
+    group: "people", handle: ".drag", animation: 150, ghostClass: "sortable-ghost", onEnd: changed });
 }
 function collect() {
   const val = e => e.type === "checkbox" ? e.checked : e.value.trim();
@@ -1168,7 +1180,7 @@ document.addEventListener("input", e => {
     r.querySelector(`[data-k=${by}]`).value = ""; r.querySelector(`[data-k=${at}]`).value = ""; setBy(r);
   }
   if (e.target.classList.contains("pub-all")) {
-    e.target.closest(".bucket").querySelectorAll(".rows > .row:not(.fhide) .f-pub").forEach(x => x.checked = e.target.checked);
+    e.target.closest(".bucket, #availPanel").querySelectorAll(".rows > .row:not(.fhide) .f-pub").forEach(x => x.checked = e.target.checked);
   }
   if (e.target.dataset.k === "priority") e.target.className = "p-" + e.target.value;
   if (e.target.dataset.k === "status") e.target.className = "f-status s-" + e.target.value;
