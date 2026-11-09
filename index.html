@@ -555,7 +555,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "6.8";
+const VERSION = "6.9";
 const UPDATED = "09.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -1234,7 +1234,7 @@ function renderWall() {
   $("wAvail").innerHTML = `<span class="lbl">זמינות היום:</span>` + (avail.length ? avail.map(p => { const [label, ic] = AVAIL[p.type];
       return `<span class="w-chip ${p.type}">${ic} ${esc(p.name)} · ${esc(p.reason && p.reason !== label ? p.reason : label)}</span>`; }).join("")
     : `<span class="w-chip">✅ כל הצוות זמין</span>`);
-  $("wMsg").innerHTML = b.messagePublish && b.message.trim() ? `<div class="w-msg">📝 ${esc(b.message.trim())}</div>` : "";
+  $("wMsg").innerHTML = "";  // ההודעה לצוות לא מוצגת בתצוגת החלל (רק בכרטיס ב-Teams)
   const dm = s => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
   const card = t => {
     const late = dated(t) && t.due < today, now = t.due === today || late;
