@@ -105,6 +105,8 @@
   .drag{cursor:grab;color:var(--sub);user-select:none;text-align:center;font-size:16px;line-height:1}
   .drag:active{cursor:grabbing}
   .sortable-ghost{opacity:.35;background:var(--accent-soft)}
+  .row.task.flash{animation:flash 4s ease-out}
+  @keyframes flash{0%,40%{background:var(--accent-soft);border-color:var(--accent)}}
   .rows{min-height:12px}
   .row.task.done .f-title,.row.task.done .f-customer{text-decoration:line-through;color:var(--sub)}
   select.s-הושלם{color:var(--green)!important;font-weight:700}
@@ -563,7 +565,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "7.0";
+const VERSION = "7.1";
 const UPDATED = "09.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -1553,7 +1555,7 @@ async function waitStatusRun(req) {
   return null;
 }
 // רענון אוטומטי אצל הצוות, כדי לראות עדכונים של אחרים
-setInterval(() => { if (TEAM && token && !pending && !document.querySelector(".row.task.editing") && document.visibilityState === "visible") load(); }, 5 * 60 * 1000);
+// רענון אוטומטי (גם אצל הצוות): ראו autoSync
 
 // לינק צוות: מפתח הצוות מוצפן בסיסמה (PBKDF2 + AES-GCM), הפענוח רק בדפדפן
 const b64u = u8 => btoa(String.fromCharCode(...u8)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -1670,12 +1672,13 @@ const nv = (t, f) => t[f] || (f === "status" ? "לא התחיל" : f === "priori
 function mergeRemote(base, remote, local) {
   const merged = [], byId = a => new Map((a || []).filter(t => t.id).map(t => [t.id, t]));
   const B = byId(base.tasks), R = byId(remote.tasks), L = byId(local.tasks);
+  merged.ids = [];  // משימות שהשתנו / נוספו (להדגשה)
   const aKey = a => [a.id, a.archivedAt, a.deletedAt].join("|"), baseArch = new Set((base.archive || []).map(aKey));
   const newArch = (remote.archive || []).filter(a => !baseArch.has(aKey(a)));
   for (const [id, rt] of R) {
     const bt = B.get(id), lt = L.get(id);
     if (!bt) {  // נוספה בינתיים
-      if (!lt && !local.archive.some(a => a.id === id)) { local.tasks.push({ ...rt }); merged.push(rt.createdBy || "?"); }
+      if (!lt && !local.archive.some(a => a.id === id)) { local.tasks.push({ ...rt }); merged.push(rt.createdBy || "?"); merged.ids.push(id); }
       continue;
     }
     if (!lt) continue;  // המנהל מחק / העביר לארכיון
@@ -1689,7 +1692,7 @@ function mergeRemote(base, remote, local) {
       lt[f] = rt[f] || ""; if (at) { lt[by] = rt[by] || ""; lt[at] = rt[at] || ""; }
       ch = true;
     }
-    if (ch) merged.push(rt.editedBy || rt.statusBy || rt.dueBy || "?");
+    if (ch) { merged.push(rt.editedBy || rt.statusBy || rt.dueBy || "?"); merged.ids.push(id); }
   }
   for (const [id, bt] of B) {  // נמחקה בינתיים: מוחקים גם כאן, אלא אם המנהל שינה אותה
     const lt = L.get(id);
@@ -1720,7 +1723,45 @@ async function saveBoard(message) {
   return merged;
 }
 const mergedNote = m => !m.length ? "" : `${m.length === 1 ? " שולב עדכון אחד" : ` שולבו ${m.length} עדכונים`} מהצוות (${[...new Set(m)].map(esc).join(", ")}).`;
-function busy(on) { ["saveBtn", "pubBtn"].forEach(id => $(id).disabled = on); if (!on) updateSaveBtn(); }
+function busy(on) { isBusy = on; ["saveBtn", "pubBtn"].forEach(id => $(id).disabled = on); if (!on) updateSaveBtn(); }
+
+// ---------- סנכרון אוטומטי: שינויים של הצוות (או מחלון אחר) מופיעים בלי לטעון מחדש ----------
+// כל 30 שניות בודקים אם board.json השתנה. אם אין שינויים שלא נשמרו - מציגים את הגרסה החדשה;
+// אם יש - משלבים לתוכם את שינויי הצוות (אותו מיזוג כמו בשמירה), והשינויים שלך נשארים לא שמורים.
+const SYNC_MS = 30 * 1000;
+let isBusy = false;
+const metaOf = x => JSON.stringify([x.buckets, x.unavailable, x.message, x.messagePublish]);
+const typing = () => { const a = document.activeElement;  // לא מפריעים באמצע הקלדה / עריכה
+  return !!document.querySelector(".row.task.editing") ||
+    !!(a && a.matches?.("input, textarea, select") && a.closest(".bucket, #availPanel, #msgPanel, #settingsPanel")); };
+async function autoSync() {
+  if (!token || !baseBoard || isBusy || pending || WALL || PREVIEW || document.visibilityState !== "visible" || typing()) return;
+  const before = sha["board.json"];
+  let text; try { text = await readFile("board.json"); } catch { return; }
+  const got = sha["board.json"];
+  if (got === before || !text.trim() || isBusy) return;
+  if (pending || typing()) { if (sha["board.json"] === got) sha["board.json"] = before; return; }  // ננסה שוב בפעם הבאה
+  const remote = JSON.parse(text);
+  let merged;
+  if (!dirty) {
+    merged = mergeRemote(baseBoard, remote, JSON.parse(JSON.stringify(baseBoard)));  // רק כדי לדעת מה השתנה ומי שינה
+    render(remote);
+  } else {
+    if (metaOf(remote) !== metaOf(baseBoard)) {  // שמירה מחלון אחר - לא משלבים, השמירה שלך תיחסם
+      status("err", "הלוח נשמר בינתיים מחלון אחר. כדי לא לדרוס, לחצו 'טען מחדש' (השינויים שלכם יאבדו).");
+      return;
+    }
+    const local = collect();
+    merged = mergeRemote(baseBoard, remote, local);
+    render(local);
+  }
+  baseBoard = JSON.parse(text);  // עותק נפרד (render משתמש באובייקט עצמו)
+  merged.ids.forEach(id => [...document.querySelectorAll(".bucket .rows > .row")]
+    .find(r => r.querySelector("[data-k=id]")?.value === id)?.classList.add("flash"));
+  if (merged.length) status("info", `${dirty ? `<span class="dirty-dot"></span>יש שינויים שלא נשמרו. ` : ""}🔄 ${merged.length === 1 ? "עדכון חדש" : `${merged.length} עדכונים חדשים`} מ${[...new Set(merged)].map(esc).join(", ")}.`);
+}
+setInterval(autoSync, SYNC_MS);
+document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && autoSync());
 function apiError(e, what) {
   if (e.status === 409) status("err", "הלוח נשמר בינתיים מחלון אחר. לחצו 'טען מחדש' (השינויים שלכם יאבדו) ונסו שוב.");
   else if (e.status === 401) logout("מפתח הגישה לא תקין או שפג תוקפו.");
