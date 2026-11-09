@@ -107,6 +107,12 @@
   .sortable-ghost{opacity:.35;background:var(--accent-soft)}
   .row.task.flash{animation:flash 4s ease-out}
   @keyframes flash{0%,40%{background:var(--accent-soft);border-color:var(--accent)}}
+  /* לחיצה על הודעת "עדכון חדש": קופצים למשימה ומאירים אותה */
+  .sync-btn{all:unset;cursor:pointer;color:var(--accent);font-size:14px}
+  .sync-btn u{text-decoration-style:dotted;text-underline-offset:3px}
+  .sync-btn:hover u{text-decoration-style:solid}
+  .row.task.spot{outline:3px solid var(--accent);outline-offset:2px;animation:spot 1.1s ease-in-out 4}
+  @keyframes spot{50%{background:var(--accent-soft);box-shadow:0 0 0 9px var(--accent-soft)}}
   .rows{min-height:12px}
   .row.task.done .f-title,.row.task.done .f-customer{text-decoration:line-through;color:var(--sub)}
   select.s-הושלם{color:var(--green)!important;font-weight:700}
@@ -565,7 +571,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "7.1";
+const VERSION = "7.2";
 const UPDATED = "09.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -1756,9 +1762,27 @@ async function autoSync() {
     render(local);
   }
   baseBoard = JSON.parse(text);  // עותק נפרד (render משתמש באובייקט עצמו)
-  merged.ids.forEach(id => [...document.querySelectorAll(".bucket .rows > .row")]
-    .find(r => r.querySelector("[data-k=id]")?.value === id)?.classList.add("flash"));
-  if (merged.length) status("info", `${dirty ? `<span class="dirty-dot"></span>יש שינויים שלא נשמרו. ` : ""}🔄 ${merged.length === 1 ? "עדכון חדש" : `${merged.length} עדכונים חדשים`} מ${[...new Set(merged)].map(esc).join(", ")}.`);
+  merged.ids.forEach(id => taskRow(id)?.classList.add("flash"));
+  if (!merged.length) return;
+  // כל עוד ההודעה הקודמת עדיין מוצגת - מצרפים אליה (כדי שלא יפספסו עדכון)
+  if (!$("status").querySelector(".sync-btn")) { syncIds = []; syncNames = []; syncAt = 0; }
+  syncIds = [...new Set([...syncIds, ...merged.ids])]; syncNames = [...new Set([...syncNames, ...merged])];
+  const n = syncIds.length || merged.length;
+  status("info", `${dirty ? `<span class="dirty-dot"></span>יש שינויים שלא נשמרו. ` : ""}<button type="button" class="sync-btn" onclick="showSynced()" title="לחיצה: מעבר למשימה והדגשה">🔄 ${n === 1 ? "עדכון חדש" : `${n} עדכונים חדשים`} מ${syncNames.map(esc).join(", ")}. <u>${n > 1 ? "הצג (לחיצה נוספת: הבא)" : "הצג"}</u></button>`);
+}
+let syncIds = [], syncNames = [], syncAt = 0;  // משימות מהעדכון האחרון, ואיזו מהן מוצגת עכשיו
+const taskRow = id => [...document.querySelectorAll(".bucket .rows > .row")].find(r => r.querySelector("[data-k=id]")?.value === id);
+function showSynced() {
+  const rows = syncIds.map(taskRow).filter(Boolean);
+  if (!rows.length) return status("info", "המשימה כבר לא בלוח (אולי נמחקה או הועברה לארכיון).");
+  const row = rows[syncAt++ % rows.length];
+  setView("board");
+  if (row.classList.contains("fhide")) clearFilters();  // מוסתרת בסינון
+  row.closest(".bucket").classList.remove("collapsed");  // פותחים את ה-bucket (בלי לשמור כהעדפה)
+  document.querySelectorAll(".row.task.spot").forEach(x => x.classList.remove("spot"));
+  void row.offsetWidth; row.classList.add("spot");  // מתחילים את ההבהוב מחדש
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  clearTimeout(row._spotT); row._spotT = setTimeout(() => row.classList.remove("spot"), 6000);
 }
 setInterval(autoSync, SYNC_MS);
 document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && autoSync());
