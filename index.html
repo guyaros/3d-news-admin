@@ -155,6 +155,16 @@
   .preview .panel{display:flex;flex-direction:column;max-height:calc(100vh - 100px);margin-bottom:0}
   .preview .tcard{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
   @media(max-width:1100px){.preview{position:static}.preview .panel{max-height:none}}
+  /* מזעור התצוגה המקדימה: הטור מתכווץ לפס צר, והלוח מקבל את כל הרוחב (הבחירה נשמרת בדפדפן) */
+  .pv-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .pv-head h2{margin-bottom:8px}
+  .pv-toggle{font-size:13px;padding:3px 9px;white-space:nowrap}
+  .pv-open{display:none;writing-mode:vertical-rl;padding:14px 6px;font-size:14px;width:100%;gap:6px;align-items:center;justify-content:center}
+  .pv-open .count{writing-mode:horizontal-tb}
+  body.pv-min .wrap{grid-template-columns:minmax(0,1fr) 46px}
+  body.pv-min .preview .panel{display:none}
+  body.pv-min .pv-open{display:flex}
+  @media(max-width:1100px){body.pv-min .wrap{grid-template-columns:1fr}.pv-open{writing-mode:horizontal-tb;padding:8px 12px}}
   .tcard{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--card)}
   .tb{margin:0} .tb.Bolder{font-weight:700} .tb.Large{font-size:20px}
   .tb.subtle{color:var(--sub);font-size:13px}
@@ -523,8 +533,12 @@
   </div>
 
   <div class="preview">
+    <button type="button" class="pv-open" onclick="togglePreviewPane(false)" title="הצגת התצוגה המקדימה">👁️ תצוגה מקדימה <span class="count" id="pvMinCnt"></span></button>
     <div class="panel">
-      <h2>תצוגה מקדימה <span class="empty" style="font-weight:400">· מה שיפורסם</span></h2>
+      <div class="pv-head">
+        <h2>תצוגה מקדימה <span class="empty" style="font-weight:400">· מה שיפורסם</span></h2>
+        <button type="button" class="ghost pv-toggle" onclick="togglePreviewPane(true)" title="מזעור, כדי לפנות מקום ללוח">⇤ מזער</button>
+      </div>
       <div class="tcard" id="preview"><span class="empty">טוען…</span></div>
     </div>
   </div>
@@ -571,7 +585,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "7.2";
+const VERSION = "7.3";
 const UPDATED = "09.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -801,6 +815,7 @@ function renderPreview() {
     boxes.forEach(x => x.closest(".row").classList.toggle("off", !x.checked));
   }
   $("pubBtn").textContent = `שלח ופרסם (${d.tasks.length}${d.message ? " + הודעה" : ""})`;
+  $("pvMinCnt").textContent = d.tasks.length; $("pvMinCnt").title = "משימות מסומנות לפרסום";
   $("msgPanel").classList.toggle("off", !$("msgPub").checked);
   document.querySelectorAll(".bucket").forEach(el => {
     const boxes = [...el.querySelectorAll(".f-pub")], on = boxes.filter(x => x.checked).length;
@@ -1044,6 +1059,13 @@ function peopleSelect(key, value, emptyLabel) {
 const FOLD_KEY = "3dnews-admin-folded";
 function foldState() { try { return JSON.parse(localStorage.getItem(FOLD_KEY)) || {}; } catch { return {}; } }
 function isCollapsed(b, tasks) { const st = foldState(); return b in st ? st[b] : !tasks.some(t => t.bucket === b); }
+function togglePreviewPane(min) {
+  document.body.classList.toggle("pv-min", min);
+  const st = foldState(); st.__preview__ = min;
+  try { localStorage.setItem(FOLD_KEY, JSON.stringify(st)); } catch {}
+  document.querySelectorAll("textarea.grow").forEach(autosize);  // הרוחב השתנה
+}
+document.body.classList.toggle("pv-min", !!foldState().__preview__);
 function toggleBucket(h) {
   const el = h.closest(".bucket, .foldable"), key = el.dataset.bucket || el.dataset.fold, st = foldState();
   st[key] = el.classList.toggle("collapsed");
