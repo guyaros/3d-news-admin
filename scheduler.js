@@ -46,6 +46,9 @@ async function fail(f, sched, error) {  // נשאר ב-schedule.json כדי שמ
 async function main() {
   // בלי סוד: אזהרה בלבד (לא כישלון), כדי ש-GitHub לא ישלח מייל כל 5 דקות. הממשק מציג "עדיין לא נשלח".
   if (!TOKEN) return console.log("::warning::חסר הסוד SCHED_TOKEN (Settings > Secrets and variables > Actions). פרסום מתוזמן לא פעיל.");
+  // 404 על schedule.json נראה אותו דבר גם כשאין למפתח גישה ל-repo, לכן בודקים קודם גישה
+  try { await gh(""); }
+  catch (e) { console.log(`::error::SCHED_TOKEN לא מצליח לגשת ל-${REPO} (${e.message}). צריך מפתח עם Contents: Read and write על ה-repo הזה.`); process.exit(1); }
   const f = await read("schedule.json");
   if (!f || !f.text.trim()) return console.log("אין פרסום מתוזמן.");
   const sched = JSON.parse(f.text), at = new Date(sched.at);
