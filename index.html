@@ -148,6 +148,20 @@
   .actions .status{flex:1;min-width:200px;font-size:14px}
   .status.err{color:var(--red)} .status.ok{color:var(--green)} .status.info{color:var(--accent)}
   .status a{color:inherit}
+  /* פרסום מתוזמן */
+  .sched{position:relative}
+  .sched-pop{position:absolute;bottom:calc(100% + 10px);inset-inline-end:0;width:300px;max-width:calc(100vw - 32px);background:var(--card);
+        border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(20,20,40,.18);padding:12px 14px;display:grid;gap:8px;z-index:6}
+  .sched-pop b{font-size:14px}
+  .sched-quick{display:flex;gap:6px;flex-wrap:wrap}
+  .sched-quick button{padding:4px 10px;font-size:13px}
+  .sched-pop .hint{color:var(--sub);font-size:12px;line-height:1.45}
+  .sched-pop .row2{display:flex;gap:8px;justify-content:flex-end}
+  .sched-chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:3px 4px 3px 12px;font-size:13px;font-weight:700}
+  .sched-chip.err{background:var(--red-soft);color:var(--red)}
+  .sched-chip button{border:none;background:none;color:inherit;padding:0 6px;font-size:14px}
+  .sched-chip button:hover{color:var(--red)}
+  @media(max-width:600px){.sched-pop{position:fixed;inset-inline:16px;bottom:16px;width:auto;max-width:none}}
   .dirty-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--orange);margin-inline-end:6px}
   /* preview */
   /* תצוגה מקדימה: נשארת במקום, עם גלילה משלה (לא תלויה בגלילת הלוח) */
@@ -566,7 +580,18 @@
 <div class="actions hidden" id="actions"><div class="in">
   <div class="status" id="status"></div>
   <button onclick="reload()">טען מחדש</button>
+  <span class="sched-chip admin-only hidden" id="schedChip"><span id="schedTxt"></span><button type="button" onclick="cancelSchedule()" title="ביטול התזמון">✕</button></span>
   <button id="saveBtn" onclick="save()">שמור לוח</button>
+  <span class="sched admin-only">
+    <button type="button" id="schedBtn" onclick="toggleSched()" title="פרסום אוטומטי בתאריך ושעה שתבחרו">⏰ תזמון</button>
+    <div class="sched-pop hidden" id="schedPop">
+      <b>פרסום אוטומטי בתאריך ושעה</b>
+      <input type="datetime-local" id="schedAt" step="300">
+      <div class="sched-quick" id="schedQuick"></div>
+      <div class="hint">בשעה שנקבעה יפורסם מה שמסומן בלוח <u>באותו רגע</u> (כולל עדכוני הצוות עד אז). שעון ישראל. השליחה עשויה להתעכב עד כ-15 דקות.</div>
+      <div class="row2"><button type="button" onclick="toggleSched(false)">ביטול</button><button type="button" class="primary" style="padding:7px 18px;font-size:15px" onclick="schedulePublish()">תזמן</button></div>
+    </div>
+  </span>
   <button class="primary" id="pubBtn" onclick="publish()">שלח ופרסם</button>
 </div></div>
 
@@ -585,8 +610,8 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "7.4";
-const UPDATED = "09.11.2026";
+const VERSION = "7.5";
+const UPDATED = "11.11.2026";
 
 // חייב להתאים ל-tasks.py
 const PRI_ICON = { "דחוף": "🔴", "גבוהה": "🔴", "רגילה": "🟡", "בהמתנה": "⚪" };  // רמזור ברשימת העדיפות
@@ -799,10 +824,10 @@ function cardBlocks(sel) {
   }
   return B;
 }
-function selected() {
-  const b = collect();
-  return { unavailable: b.unavailable.filter(p => p.publish), tasks: b.tasks.filter(t => t.publish), message: b.messagePublish ? b.message : "" };
-}
+// מה שמסומן לפרסום בלוח (גם scheduler.js משתמש בזה, על board.json כפי שהוא ב-GitHub)
+const boardSelection = b => ({ unavailable: (b.unavailable || []).filter(p => p.publish !== false), tasks: (b.tasks || []).filter(t => t.publish === true),
+  message: b.messagePublish ? b.message || "" : "" });
+function selected() { return boardSelection(collect()); }
 
 const hasContent = d => d.tasks.length > 0 || !!(d.message && d.message.trim());
 function renderPreview() {
@@ -1685,6 +1710,7 @@ async function load() {
       board.tasks.forEach(t => t.bucket = t.bucket || "משימות כללי");
     }
     render(board); setDirty(false); status("", "");
+    if (!TEAM) refreshSchedule();
   } catch (e) {
     if (e.status === 401) return logout(TEAM ? "הגישה בוטלה או שפג תוקפה. בקשו לינק חדש ממנהל הלוח." : "מפתח הגישה לא תקין או שפג תוקפו. צרו מפתח חדש.");
     status("err", "שגיאה בטעינה: " + esc(e.message));
@@ -1751,7 +1777,7 @@ async function saveBoard(message) {
   return merged;
 }
 const mergedNote = m => !m.length ? "" : `${m.length === 1 ? " שולב עדכון אחד" : ` שולבו ${m.length} עדכונים`} מהצוות (${[...new Set(m)].map(esc).join(", ")}).`;
-function busy(on) { isBusy = on; ["saveBtn", "pubBtn"].forEach(id => $(id).disabled = on); if (!on) updateSaveBtn(); }
+function busy(on) { isBusy = on; ["saveBtn", "pubBtn", "schedBtn"].forEach(id => $(id).disabled = on); if (!on) updateSaveBtn(); }
 
 // ---------- סנכרון אוטומטי: שינויים של הצוות (או מחלון אחר) מופיעים בלי לטעון מחדש ----------
 // כל 30 שניות בודקים אם board.json השתנה. אם אין שינויים שלא נשמרו - מציגים את הגרסה החדשה;
@@ -1834,6 +1860,87 @@ async function publish() {
     await watchRun(commit.sha);
   } catch (e) { apiError(e, "לא פורסם"); }
   busy(false); renderPreview();
+}
+// ---------- פרסום מתוזמן ----------
+// schedule.json ב-repo הפרטי: { at: זמן UTC, setAt, error? }. ה-workflow "Scheduled publish" ב-3d-news-admin
+// בודק כל 5 דקות, ובהגיע הזמן כותב את tasks.txt מ-board.json (בדיוק כמו "שלח ופרסם") ומוחק את schedule.json.
+let schedule = null;
+const SCHED_FILE = "schedule.json";
+const ilParts = d => Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit",
+  day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(d).filter(p => p.type !== "literal").map(p => [p.type, +p.value]));
+const z2 = n => String(n).padStart(2, "0");
+const toILInput = d => { const p = ilParts(d); return `${p.year}-${z2(p.month)}-${z2(p.day)}T${z2(p.hour)}:${z2(p.minute)}`; };
+function fromIL(s) {  // "YYYY-MM-DDTHH:MM" בשעון ישראל -> Date (לא תלוי באזור הזמן של המחשב)
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s || ""); if (!m) return null;
+  const want = Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5]);
+  let ms = want;
+  for (let i = 0; i < 3; i++) { const p = ilParts(new Date(ms)); ms -= Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - want; }
+  return new Date(ms);
+}
+const schedLabel = d => d.toLocaleString("he-IL", { timeZone: TZ, weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+function showSchedule() {
+  const chip = $("schedChip"), s = schedule;
+  chip.classList.toggle("hidden", !s); if (!s) return;
+  const at = new Date(s.at), late = at <= new Date(), stuck = !s.error && Date.now() - at > 20 * 60 * 1000;
+  chip.classList.toggle("err", !!s.error || stuck);
+  $("schedTxt").textContent = s.error ? `⚠️ הפרסום המתוזמן (${schedLabel(at)}) לא בוצע: ${s.error}`
+    : stuck ? `⚠️ הפרסום המתוזמן (${schedLabel(at)}) עדיין לא נשלח`
+    : `⏰ ${late ? "ממתין לשליחה" : "פרסום מתוזמן"}: ${schedLabel(at)}`;
+  chip.title = s.error ? "לחצו ✕ כדי לנקות" : stuck ? "בדקו את ה-workflow 'Scheduled publish' ב-guyaros/3d-news-admin (Actions) ואת הסוד SCHED_TOKEN"
+    : late ? "הזמן הגיע. GitHub שולח בדקות הקרובות." : "בשעה הזו יפורסם מה שמסומן בלוח באותו רגע";
+}
+async function refreshSchedule() {
+  if (TEAM || !token) return;
+  const had = schedule;
+  try { const t = await readFile(SCHED_FILE); schedule = t.trim() ? JSON.parse(t) : null; } catch { return; }
+  if (had && !had.error && !schedule && new Date(had.at) <= new Date())
+    status("ok", `✓ הפרסום המתוזמן (${schedLabel(new Date(had.at))}) נשלח. <a href="https://github.com/${REPO}/actions/workflows/${WORKFLOW}" target="_blank">פרטים</a>`);
+  showSchedule();
+}
+setInterval(() => document.visibilityState === "visible" && schedule && refreshSchedule(), 60 * 1000);
+function toggleSched(open) {
+  const pop = $("schedPop"); open = open ?? pop.classList.contains("hidden");
+  pop.classList.toggle("hidden", !open); if (!open) return;
+  const now = new Date();
+  const day = off => { const p = ilParts(new Date(now.getTime() + off * 864e5)); return `${p.year}-${z2(p.month)}-${z2(p.day)}`; };
+  // ברירת מחדל: התזמון הקיים, או מחר ב-08:00
+  $("schedAt").value = schedule && !schedule.error ? toILInput(new Date(schedule.at)) : `${day(1)}T08:00`;
+  $("schedAt").min = toILInput(now);
+  const quick = [["היום 12:00", `${day(0)}T12:00`], ["היום 16:00", `${day(0)}T16:00`], ["מחר 08:00", `${day(1)}T08:00`], ["מחר 12:00", `${day(1)}T12:00`]]
+    .filter(([, v]) => fromIL(v) > now);
+  $("schedQuick").innerHTML = quick.map(([l, v]) => `<button type="button" data-v="${v}">${l}</button>`).join("");
+  $("schedQuick").querySelectorAll("button").forEach(b => b.onclick = () => $("schedAt").value = b.dataset.v);
+}
+document.addEventListener("click", e => {  // לחיצה מחוץ לחלון התזמון סוגרת אותו
+  if (!$("schedPop").classList.contains("hidden") && !e.target.closest(".sched")) toggleSched(false);
+});
+async function schedulePublish() {
+  const at = fromIL($("schedAt").value);
+  if (!at) return alert("בחרו תאריך ושעה.");
+  if (at.getTime() < Date.now() + 60 * 1000) return alert("הזמן שנבחר כבר עבר. בחרו זמן עתידי.");
+  if (at.getTime() > Date.now() + 60 * 864e5) return alert("אפשר לתזמן עד 60 יום קדימה.");
+  const d = selected();
+  if (!hasContent(d)) return alert("לא סומן שום דבר לפרסום.");
+  if (!confirm(`לפרסם אוטומטית ב-${schedLabel(at)}?\n\nיפורסם מה שיהיה מסומן בלוח באותו רגע (כרגע: ${d.tasks.length} משימות${d.message ? " והודעה" : ""}).${schedule && !schedule.error ? "\nהתזמון הקודם יוחלף." : ""}`)) return;
+  toggleSched(false); busy(true); status("info", "שומר…");
+  try {
+    const m = await saveBoard("Update tasks board"); setDirty(false);
+    const s = { at: at.toISOString(), setAt: new Date().toISOString() };
+    await writeFile(SCHED_FILE, JSON.stringify(s, null, 2) + "\n", `Schedule publish for ${toILInput(at).replace("T", " ")}`, true);
+    schedule = s; showSchedule();
+    status("ok", `✓ הלוח נשמר והפרסום תוזמן ל-${schedLabel(at)}.` + mergedNote(m));
+  } catch (e) { apiError(e, "התזמון לא נשמר"); }
+  busy(false); renderPreview();
+}
+async function cancelSchedule() {
+  if (!schedule) return;
+  if (!schedule.error && !confirm(`לבטל את הפרסום המתוזמן ל-${schedLabel(new Date(schedule.at))}?`)) return;
+  try {
+    if (!(await readFile(SCHED_FILE)).trim()) { schedule = null; showSchedule(); return status("info", "התזמון כבר לא קיים (אולי כבר פורסם)."); }
+    await gh(`/contents/${SCHED_FILE}`, { method: "DELETE", body: JSON.stringify({ message: "Cancel scheduled publish", sha: sha[SCHED_FILE], branch: "main" }) });
+    delete sha[SCHED_FILE]; schedule = null; showSchedule();
+    status("ok", "✓ התזמון בוטל.");
+  } catch (e) { status("err", "לא בוטל: " + esc(e.message)); refreshSchedule(); }
 }
 // מעקב אחרי הרצת GitHub Actions (דורש הרשאת Actions: Read-only)
 async function watchRun(commitSha) {
