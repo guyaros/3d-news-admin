@@ -1906,8 +1906,8 @@ function toggleSched(open) {
   // ברירת מחדל: התזמון הקיים, או מחר ב-08:00
   $("schedAt").value = schedule && !schedule.error ? toILInput(new Date(schedule.at)) : `${day(1)}T08:00`;
   $("schedAt").min = toILInput(now);
-  const quick = [["היום 12:00", `${day(0)}T12:00`], ["היום 16:00", `${day(0)}T16:00`], ["מחר 08:00", `${day(1)}T08:00`], ["מחר 12:00", `${day(1)}T12:00`]]
-    .filter(([, v]) => fromIL(v) > now);
+  const quick = [["היום 08:00", `${day(0)}T08:00`], ["מחר 08:00", `${day(1)}T08:00`]]
+    .filter(([, v]) => fromIL(v) > now);  // "היום 08:00" מוצג רק לפני 08:00
   $("schedQuick").innerHTML = quick.map(([l, v]) => `<button type="button" data-v="${v}">${l}</button>`).join("");
   $("schedQuick").querySelectorAll("button").forEach(b => b.onclick = () => $("schedAt").value = b.dataset.v);
 }
