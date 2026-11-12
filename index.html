@@ -16,6 +16,8 @@
     --muted-row:#f7f8fb;
     --shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.05);
     --on-accent:#fff; --on-orange:#fff; color-scheme:light;
+    /* גרף התפלגות: צבע קבוע לכל איש צוות לפי הסדר ברשימת הצוות (נבדק ל-CVD מול הרקע) */
+    --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#6250d6; --c8:#e34948; --c0:#9a9890;
   }
   /* מצב כהה: אוטומטי לפי המחשב, או בבחירה ידנית (data-theme) */
   @media (prefers-color-scheme: dark){
@@ -25,6 +27,7 @@
       --orange:#ffb44d; --orange-soft:#3a2d18; --green:#5fd394; --green-soft:#1b3326;
       --muted-row:#1a1b21; --shadow:none;
       --on-accent:#14152a; --on-orange:#2a1d05; color-scheme:dark;
+      --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c8:#e66767; --c0:#6f6e69;
     }
   }
   :root[data-theme="dark"]{
@@ -33,6 +36,7 @@
       --orange:#ffb44d; --orange-soft:#3a2d18; --green:#5fd394; --green-soft:#1b3326;
       --muted-row:#1a1b21; --shadow:none;
       --on-accent:#14152a; --on-orange:#2a1d05; color-scheme:dark;
+      --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c8:#e66767; --c0:#6f6e69;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Heebo,"Segoe UI",Arial,sans-serif}
@@ -149,6 +153,27 @@
   .status.err{color:var(--red)} .status.ok{color:var(--green)} .status.info{color:var(--accent)}
   .status a{color:inherit}
   /* פרסום מתוזמן */
+  /* התפלגות משימות */
+  .st-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+  .st-head h2{margin:0}
+  .st-head .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .st-head .seg button{border:none;border-radius:0;padding:5px 12px;font-size:13px;background:none;color:var(--sub)}
+  .st-head .seg button.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+  .st-body{display:flex;align-items:center;gap:32px;flex-wrap:wrap;justify-content:center;padding:8px 0}
+  .st-pie{width:260px;max-width:100%;height:auto;overflow:visible}
+  .st-pie path,.st-pie circle.slice{stroke:var(--card);stroke-width:2;cursor:pointer;transition:opacity .15s}
+  .st-pie.hov path:not(.on),.st-pie.hov circle.slice:not(.on){opacity:.35}
+  .st-pie text{font:700 14px Heebo,sans-serif;fill:#fff;pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.25);stroke-width:2px}
+  .st-pie text.dark{fill:#0b0b0b;stroke:none}
+  .st-legend{border-collapse:collapse;font-size:14px;min-width:260px}
+  .st-legend th{color:var(--sub);font-weight:500;font-size:12px;text-align:start;padding:4px 8px;border-bottom:1px solid var(--line)}
+  .st-legend td{padding:6px 8px;border-bottom:1px solid var(--line)}
+  .st-legend td.n{text-align:end;font-variant-numeric:tabular-nums}
+  .st-legend tr.row-p{cursor:pointer}
+  .st-legend tr.row-p:hover,.st-legend tr.row-p.on{background:var(--muted-row)}
+  .st-legend .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:8px}
+  .st-legend tfoot td{font-weight:700;border-bottom:none}
+  .st-tip{position:fixed;pointer-events:none;background:var(--text);color:var(--card);padding:6px 10px;border-radius:8px;font-size:13px;z-index:50;white-space:nowrap}
   .sched{position:relative}
   .sched-pop{position:absolute;bottom:calc(100% + 10px);inset-inline-end:0;width:300px;max-width:calc(100vw - 32px);background:var(--card);
         border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(20,20,40,.18);padding:12px 14px;display:grid;gap:8px;z-index:6}
@@ -461,6 +486,7 @@
         <button type="button" class="tab on" data-view="board" onclick="setView('board')">📋 לוח משימות</button>
         <button type="button" class="tab" data-view="cal" onclick="setView('cal')">📅 לוח שנה</button>
         <button type="button" class="tab" data-view="arch" onclick="setView('arch')">🗄️ ארכיון <span id="archCnt"></span></button>
+        <button type="button" class="tab" data-view="stats" onclick="setView('stats')" title="חלוקת המשימות בין אנשי הצוות">📊 התפלגות</button>
         <span class="spacer"></span>
         <label class="me-pick team-only" title="השם שלכם, לעדכון סטטוס">👤 אני: <select id="meSel" onchange="setMe(this.value)"></select></label>
         <button type="button" class="tab team-only" onclick="showMine()">המשימות שלי</button>
@@ -511,6 +537,7 @@
 
     <div class="panel hidden" id="calView"></div>
     <div class="panel hidden" id="archView"></div>
+    <div class="panel hidden" id="statsView"></div>
 
     <div id="buckets"></div>
 
@@ -610,7 +637,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "7.6";
+const VERSION = "7.7";
 const UPDATED = "12.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -967,7 +994,7 @@ function applyFilters() {
   $("fDay").classList.toggle("hidden", !fDayVal);
   if (fDayVal) $("fDay").textContent = `📅 ${isoToDMY(fDayVal)} ✕`;
   if (active) document.querySelectorAll(".filtering .bucket textarea.grow").forEach(autosize);
-  renderCalendar(); renderArchive();
+  renderCalendar(); renderArchive(); renderStats();
 }
 function clearDay() { fDayVal = null; applyFilters(); }
 function clearFilters() { $("fSearch").value = ""; $("fOwner").value = ""; $("fStatus").value = ""; $("fDate").value = ""; fDayVal = null; applyFilters(); }
@@ -979,9 +1006,61 @@ function setView(v) {
   document.querySelectorAll(".view-tabs .tab").forEach(b => b.classList.toggle("on", b.dataset.view === v));
   $("calView").classList.toggle("hidden", v !== "cal");
   $("archView").classList.toggle("hidden", v !== "arch");
+  $("statsView").classList.toggle("hidden", v !== "stats");
   $("buckets").classList.toggle("hidden", v !== "board");
-  $("fDate").disabled = v !== "board";  // בלוח השנה התאריך נבחר בלחיצה על יום
-  renderCalendar(); renderArchive();
+  $("fDate").disabled = v !== "board" && v !== "stats";  // בלוח השנה התאריך נבחר בלחיצה על יום
+  renderCalendar(); renderArchive(); renderStats();
+}
+
+// ---------- התפלגות משימות בין אנשי הצוות (עוגה) ----------
+let statsOpen = true;  // true = רק משימות פתוחות (לא הושלמו)
+function renderStats() {
+  if ($("statsView").classList.contains("hidden")) return;
+  const tasks = collect().tasks.filter(t => taskMatches(t) && (!statsOpen || (t.status || "לא התחיל") !== "הושלם"));
+  const cnt = new Map();
+  tasks.forEach(t => cnt.set(t.owner || "", (cnt.get(t.owner || "") || 0) + 1));
+  // צבע קבוע לכל אדם לפי מקומו ברשימת הצוות (לא לפי הדירוג), כדי שסינון לא יחליף צבעים
+  const order = [...team, ...[...cnt.keys()].filter(n => n && !team.includes(n))];
+  const color = n => !n ? "var(--c0)" : `var(--c${order.indexOf(n) % 8 + 1})`;
+  const darkText = n => n && order.indexOf(n) % 8 === 3;  // צהוב: טקסט כהה
+  const rows = [...cnt].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || (!a.name) - (!b.name));
+  const total = tasks.length;
+  const pct = n => total ? Math.round(n * 1000 / total) / 10 : 0;
+  const label = n => n || "ללא אחראי";
+  const seg = `<span class="seg"><button type="button" class="${statsOpen ? "on" : ""}" onclick="statsOpen=true;renderStats()">פתוחות</button><button type="button" class="${statsOpen ? "" : "on"}" onclick="statsOpen=false;renderStats()">כולל שהושלמו</button></span>`;
+  const head = `<div class="st-head"><h2>📊 התפלגות משימות לפי איש צוות</h2>${seg}<span class="empty">${isFiltering() ? "לפי הסינון הנוכחי · " : ""}לחיצה על פרוסה מציגה את המשימות</span></div>`;
+  if (!total) { $("statsView").innerHTML = head + `<div class="empty">אין משימות להצגה.</div>`; return; }
+  const R = 120, C = 130, P = (a, r = R) => [C + r * Math.sin(a), C - r * Math.cos(a)].map(x => x.toFixed(2)).join(" ");
+  let a0 = 0;
+  const slices = rows.map(r => {
+    const a1 = a0 + 2 * Math.PI * r.n / total, mid = (a0 + a1) / 2;
+    const shape = rows.length === 1 ? `<circle class="slice" cx="${C}" cy="${C}" r="${R}" fill="${color(r.name)}" data-o="${esc(r.name)}"/>`
+      : `<path d="M${C} ${C} L${P(a0)} A${R} ${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${P(a1)}Z" fill="${color(r.name)}" data-o="${esc(r.name)}"/>`;
+    const txt = pct(r.n) >= 7 ?`<text x="${P(mid, rows.length === 1 ? 0 : R * .64).split(" ")[0]}" y="${P(mid, rows.length === 1 ? 0 : R * .64).split(" ")[1]}" text-anchor="middle" dominant-baseline="central" class="${darkText(r.name) ? "dark" : ""}">${pct(r.n)}%</text>` : "";
+    a0 = a1; return { shape, txt };
+  });
+  $("statsView").innerHTML = head + `<div class="st-body">
+    <svg class="st-pie" viewBox="0 0 260 260" role="img" aria-label="התפלגות ${total} משימות בין אנשי הצוות">${slices.map(s => s.shape).join("")}${slices.map(s => s.txt).join("")}</svg>
+    <table class="st-legend"><thead><tr><th>איש צוות</th><th style="text-align:end">משימות</th><th style="text-align:end">אחוז</th></tr></thead>
+      <tbody>${rows.map(r => `<tr class="row-p" data-o="${esc(r.name)}" title="הצגת המשימות של ${esc(label(r.name))}"><td><span class="sw" style="background:${color(r.name)}"></span>${esc(label(r.name))}</td><td class="n">${r.n}</td><td class="n">${pct(r.n)}%</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td>סה״כ</td><td class="n">${total}</td><td class="n">100%</td></tr></tfoot></table></div>`;
+  const svg = $("statsView").querySelector(".st-pie");
+  let tip = document.querySelector(".st-tip");
+  if (!tip) { tip = document.createElement("div"); tip.className = "st-tip hidden"; document.body.append(tip); }
+  const hl = o => {
+    svg.classList.toggle("hov", o != null);
+    $("statsView").querySelectorAll("[data-o]").forEach(e => e.classList.toggle("on", e.dataset.o === o));
+  };
+  $("statsView").querySelectorAll("[data-o]").forEach(e => {
+    const r = rows.find(x => x.name === e.dataset.o);
+    e.onmouseenter = () => hl(r.name);
+    e.onmouseleave = () => { hl(null); tip.classList.add("hidden"); };
+    if (e.matches("path, circle")) e.onmousemove = ev => {
+      tip.textContent = `${label(r.name)}: ${r.n} משימות (${pct(r.n)}%)`; tip.classList.remove("hidden");
+      tip.style.left = ev.clientX + 14 + "px"; tip.style.top = ev.clientY + 14 + "px";
+    };
+    e.onclick = () => { tip.classList.add("hidden"); $("fOwner").value = r.name || "__none__"; setView("board"); applyFilters(); };
+  });
 }
 function calShift(n) { const [y, m] = calMonth.split("-").map(Number); calMonth = new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); renderCalendar(); }
 function calToday() { calMonth = todayISO().slice(0, 7); calSel = todayISO(); renderCalendar(); }
