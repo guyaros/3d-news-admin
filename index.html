@@ -637,7 +637,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "7.8";
+const VERSION = "7.9";
 const UPDATED = "14.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -1298,7 +1298,7 @@ function updateSaveBtn() {
   const b = $("saveBtn");
   b.classList.toggle("need", dirty); b.classList.toggle("saved", !dirty);
   b.textContent = dirty ? "שמור לוח" : "✓ הלוח שמור";
-  b.title = dirty ? "יש שינויים שלא נשמרו" : "אין שינויים לשמירה";
+  b.title = (dirty ? "יש שינויים שלא נשמרו" : "אין שינויים לשמירה") + " (Ctrl+S)";
   if (!$("pubBtn").disabled) b.disabled = !dirty;
 }
 function changed() { clearTimeout(timer); timer = setTimeout(renderPreview, 120); setDirty(true); }
@@ -1924,6 +1924,11 @@ async function save() {
   catch (e) { apiError(e, "לא נשמר"); }
   busy(false); renderPreview();
 }
+document.addEventListener("keydown", e => {  // Ctrl/Cmd+S: שמירת הלוח, כמו לחיצה על "שמור לוח"
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "s") return;
+  e.preventDefault();
+  if (!document.body.classList.contains("team-mode") && !$("saveBtn").disabled) save();
+});
 async function publish() {
   const d = selected(), total = collect().tasks.length;
   if (!hasContent(d)) return status("err", "לא סומן שום דבר לפרסום.");
