@@ -1,10 +1,17 @@
 name: Scheduled publish
-# בודק כל 5 דקות אם הגיע זמן של פרסום מתוזמן (schedule.json ב-guyaros/3d-news). ראו scheduler.js.
-# נמצא כאן ולא ב-repo הפרטי כי ב-repo ציבורי דקות Actions לא נספרות במכסה.
+# בדיקה אם הגיע זמן פרסום מתוזמן (schedule.json ב-guyaros/3d-news). ראו scheduler.js.
+#
+# ה-cron הרגיל של GitHub לא מספיק מדויק: נבדק בפועל והפערים בין הרצות cron היו 3.5-8 שעות,
+# הרבה מעבר ל"כל 5 דקות" שמוגדר - GitHub מעכב/מדלג על cron ב-repo עם פעילות דלילה, ללא אזהרה.
+# לכן זה כבר לא מנגנון הבדיקה העיקרי. במקום זאת, ה-job רץ בלולאה אחת ארוכה שבודקת כל 4 דקות
+# לפי השעון שלה, ולפני שהיא מתחילה היא כבר מפעילה (self-dispatch) את החוליה הבאה בשרשרת, שמחכה
+# בתור בזכות ה-concurrency למטה. כך השרשרת ממשיכה לנצח בלי תלות בדיוק/זמינות של ה-cron.
+# ה-schedule כאן הוא רק "רשת ביטחון": אם השרשרת נעצרת מסיבה כלשהי (למשל כשלון ברצף), זה יפעיל
+# אותה מחדש - גם אם באיחור, כי גם הוא כפוף לאותו עיכוב.
 
 on:
   schedule:
-    - cron: "2-59/5 * * * *"   # לא בדיוק על :00 - שם GitHub הכי עמוס ומעכב
+    - cron: "*/30 * * * *"   # רשת ביטחון בלבד - לא קובע את דיוק הבדיקה בפועל
   workflow_dispatch: {}
 
 concurrency:
@@ -12,20 +19,46 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write   # רק בשביל ה-keepalive למטה
+  contents: write   # בשביל ה-keepalive למטה
+  actions: write    # כדי להפעיל (self-dispatch) ולבדוק ריצות קיימות של ה-workflow הזה
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 350   # קצת מתחת למגבלת 6 שעות (360 דקות) של GitHub ל-job
     steps:
       - uses: actions/checkout@v4
-      - run: node scheduler.js
+
+      - name: בדיקה (רשת ביטחון בלבד) אם כבר יש שרשרת פעילה
+        if: github.event_name == 'schedule'
+        id: guard
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          others=$(gh run list --workflow=scheduled-publish.yml --json databaseId,status \
+            --jq "[.[] | select((.status==\"in_progress\") or (.status==\"queued\")) | select(.databaseId != ${{ github.run_id }})] | length")
+          echo "ריצות אחרות פעילות/בתור: $others"
+          if [ "$others" -gt 0 ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: הפעלת החוליה הבאה בשרשרת (ממתינה בתור, גם אם הריצה הזו תיכשל באמצע)
+        if: steps.guard.outputs.skip != 'true'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh workflow run scheduled-publish.yml --ref main
+
+      - name: בדיקה בלולאה כל 4 דקות
+        if: steps.guard.outputs.skip != 'true'
         env:
           SCHED_TOKEN: ${{ secrets.SCHED_TOKEN }}
+        run: |
+          end=$(( $(date +%s) + 345*60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            node scheduler.js
+            sleep 240
+          done
+
       # GitHub משבית workflows מתוזמנים ב-repo ציבורי אחרי 60 יום בלי commits. commit ריק כל 50 יום מונע את זה.
+      # עדיין רלוונטי: ה-schedule כאן (רשת הביטחון) חייב להישאר מופעל מצד GitHub.
       - name: keepalive
-        if: github.event_name == 'schedule'
+        if: always() && github.event_name == 'schedule'
         run: |
           last=$(git log -1 --format=%ct)
           if [ $(( $(date +%s) - last )) -gt $(( 50 * 86400 )) ]; then

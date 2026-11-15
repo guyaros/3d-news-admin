@@ -1,4 +1,4 @@
-// פרסום מתוזמן. רץ ב-GitHub Actions (workflow "Scheduled publish") כל 5 דקות.
+// פרסום מתוזמן. רץ ב-GitHub Actions (workflow "Scheduled publish") כל כ-4 דקות, בלולאה עצמית ולא cron.
 // אם ב-repo הפרטי יש schedule.json והזמן שבו הגיע: בונה את tasks.txt מ-board.json עם אותו קוד של index.html
 // (מה שמסומן לפרסום באותו רגע), כותב אותו - וזה מפעיל את שליחת הכרטיס ל-Teams - ומוחק את schedule.json.
 // SCHED_TOKEN: מפתח GitHub עם Contents: Read and write על guyaros/3d-news.
@@ -7,7 +7,7 @@ const fs = require("fs"), path = require("path");
 
 const REPO = "guyaros/3d-news", API = `https://api.github.com/repos/${REPO}`;
 const TOKEN = process.env.SCHED_TOKEN, DRY = !!process.env.DRY_RUN;
-const MAX_LATE_MS = 6 * 3600 * 1000;  // איחור של יותר מ-6 שעות (למשל Actions היה מושבת) - לא שולחים כרטיס ישן
+const MAX_LATE_MS = 15 * 60 * 1000;  // ה-workflow בודק כל כ-4 דקות (ראו scheduled-publish.yml); איחור של יותר מ-15 דקות מעיד שמשהו באמת נשבר
 
 // הקוד המשותף מ-index.html (החלק שלפני "עריכה" - בלי DOM), כדי שהקובץ יהיה זהה ל"שלח ופרסם"
 function buildTasksTxt(board) {

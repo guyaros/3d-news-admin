@@ -6,7 +6,8 @@
 ## פרסום מתוזמן (גרסה 7.5)
 
 הכפתור "⏰ תזמון" שומר את הלוח וכותב `schedule.json` ב-repo הפרטי.
-ה-workflow `Scheduled publish` (כאן, ב-repo הציבורי, כדי שדקות Actions לא ייספרו) רץ כל 5 דקות.
+ה-workflow `Scheduled publish` (כאן, ב-repo הציבורי, כדי שדקות Actions לא ייספרו) בודק כל כ-4 דקות -
+לא בעזרת cron (לא מדויק בפועל), אלא בלולאה עצמית שמפעילה את עצמה מחדש (self-dispatch) כל כ-5:45 שעות.
 כשהזמן מגיע, `scheduler.js` בונה את `tasks.txt` מ-`board.json` עם אותו קוד של `index.html`, כותב אותו (זה שולח את הכרטיס) ומוחק את `schedule.json`.
 
 הגדרה חד-פעמית: סוד `SCHED_TOKEN` ב-Settings > Secrets and variables > Actions של ה-repo הזה,
