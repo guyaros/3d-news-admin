@@ -270,6 +270,10 @@
   /* ---------- מצב צוות: צפייה ועדכון סטטוס בלבד ---------- */
   .team-only{display:none!important}
   .team-mode .team-only{display:inline-flex!important}
+  #myAvailPanel{display:none}
+  .team-mode #myAvailPanel{display:block}
+  .my-avail-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .my-avail-row #maReason{flex:1;min-width:140px}
   .team-mode .admin-only,.team-mode .preview,.team-mode #availPanel,.team-mode #msgPanel,.team-mode #settingsPanel,
   .team-mode #saveBtn,.team-mode #pubBtn,.team-mode .f-pub,.team-mode .bucket-head label,.team-mode #availPanel .add,
   .team-mode .t-actions .adm,.team-mode .drag,.team-mode #archDoneBtn,.team-mode .arch-btns{display:none!important}
@@ -512,6 +516,13 @@
       </div>
     </div>
 
+    <div class="panel foldable" id="myAvailPanel" data-fold="__myavail__">
+      <div class="bucket-head">
+        <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">👤 הזמינות שלי</h2>
+      </div>
+      <div class="fold-body" id="maBody"></div>
+    </div>
+
     <div class="panel foldable" id="availPanel" data-fold="__availability__">
       <div class="bucket-head">
         <h2 onclick="toggleBucket(this)" title="לחיצה לקיפול / פתיחה">סטטוס זמינות אנשי צוות <span class="count" id="cntU">0</span></h2>
@@ -637,8 +648,8 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "7.9";
-const UPDATED = "14.11.2026";
+const VERSION = "8.0";
+const UPDATED = "15.11.2026";
 
 // חייב להתאים ל-tasks.py
 const PRI_ICON = { "דחוף": "🔴", "גבוהה": "🔴", "רגילה": "🟡", "בהמתנה": "⚪" };  // רמזור ברשימת העדיפות
@@ -1543,7 +1554,7 @@ function setField(row, f, v, by, at) {
   row.querySelector(`[data-k=${TRACK[f][0]}]`).value = by || ""; row.querySelector(`[data-k=${TRACK[f][1]}]`).value = at || "";
   setBy(row);
 }
-function setMe(v) { v ? ls.set(ME_KEY, v) : ls.del(ME_KEY); }
+function setMe(v) { v ? ls.set(ME_KEY, v) : ls.del(ME_KEY); renderMyAvail(); }
 function fillMe() {
   const me = ls.get(ME_KEY) || "";
   $("meSel").innerHTML = `<option value="">בחרו שם…</option>` + team.map(n => `<option value="${esc(n)}" ${n === me ? "selected" : ""}>${esc(n)}</option>`).join("");
@@ -1582,6 +1593,51 @@ async function teamDispatch(inputs) {
     body: JSON.stringify({ ref: "main", inputs: { ...inputs, who: ls.get(ME_KEY), req } }) });
   return waitStatusRun(req);
 }
+
+// ---------- הזמינות שלי (צוות) ----------
+function myAvailHtml(p) {
+  return `<p class="empty" style="margin:-4px 0 8px">סמנו אם אתם לא זמינים כרגיל (חופשה, מחלה, אתר לקוח…). בלי עדכון - אתם מופיעים כזמינים.</p>
+    <div class="my-avail-row">
+      <select id="maType" title="סוג זמינות">${Object.entries(AVAIL).map(([k, [label, ic]]) =>
+        `<option value="${k}" ${k === p.type ? "selected" : ""}>${ic} ${label}</option>`).join("")}</select>
+      <input id="maReason" value="${esc(p.reason)}" placeholder="סיבה (אופציונלי)">
+      ${dateField("maFrom", p.from, "מתאריך (ריק = מעכשיו)")}
+      ${dateField("maTo", p.to, "עד תאריך (אופציונלי)")}
+      <button type="button" class="primary" onclick="saveMyAvail()">💾 עדכון זמינות</button>
+      <button type="button" class="ghost" onclick="clearMyAvail()">✅ אני זמין</button>
+      <span class="status" id="maStatus"></span>
+    </div>`;
+}
+function renderMyAvail() {
+  const me = ls.get(ME_KEY);
+  const row = me && [...document.querySelectorAll("#unavail .row.person")].find(r => r.querySelector("[data-k=name]").value === me);
+  const p = row ? { type: row.querySelector("[data-k=type]").value, reason: row.querySelector(".f-reason").value,
+    from: row.querySelector("[data-k=from]").value, to: row.querySelector("[data-k=to]").value } : { type: "away", reason: "", from: "", to: "" };
+  $("maBody").innerHTML = myAvailHtml(p);
+}
+async function myAvailAction(action, data) {
+  if (PREVIEW) return status("info", "👁️ זו תצוגת צוות. כאן הצוות יכול לעדכן את הזמינות שלו; אצלכם זה לא נשמר. לעריכה: ✕ חזרה לניהול.");
+  const me = ls.get(ME_KEY);
+  if (!me || !team.includes(me)) { alert("בחרו קודם את השם שלכם בשדה 👤 אני (למעלה)."); return $("meSel").focus(); }
+  const btns = [...document.querySelectorAll("#maBody button")];
+  btns.forEach(x => x.disabled = true); pending++; $("maStatus").textContent = "⏳ שומר… (כחצי דקה)";
+  status("info", "⏳ מעדכן את הזמינות… (כחצי דקה)");
+  try {
+    const run = await teamDispatch(data ? { action, data: JSON.stringify(data) } : { action });
+    if (run && run.conclusion !== "success") { $("maStatus").textContent = ""; status("err", "העדכון נכשל. נסו שוב."); }
+    else if (action === "avail_clear") { $("maBody").innerHTML = myAvailHtml({ type: "away", reason: "", from: "", to: "" });
+      status(run ? "ok" : "info", run ? "✓ אתם מסומנים כזמינים." : "נשלח ועדיין בטיפול. לחצו 'טען מחדש' בעוד דקה כדי לוודא."); }
+    else { $("maStatus").textContent = run ? "✓ עודכן" : "⏳ בטיפול";
+      status(run ? "ok" : "info", run ? "✓ הזמינות עודכנה." : "נשלח ועדיין בטיפול. לחצו 'טען מחדש' בעוד דקה כדי לוודא."); }
+  } catch (e) { $("maStatus").textContent = ""; teamErr(e); }
+  btns.forEach(x => x.disabled = false); pending--;
+}
+function saveMyAvail() {
+  const from = document.querySelector("#maBody [data-k=maFrom]").value, to = document.querySelector("#maBody [data-k=maTo]").value;
+  if (from && to && from > to) return alert("טווח התאריכים לא תקין.");
+  myAvailAction("avail", { type: $("maType").value, reason: clean($("maReason").value), from, to });
+}
+const clearMyAvail = () => myAvailAction("avail_clear");
 
 // ---------- הוספה, עריכה ומחיקה ע"י הצוות ----------
 // שדות שנפתחים בעריכה (סטטוס ומועד נשלחים מיד, בנפרד). אורך מקסימלי זהה ל-TEXT_FIELDS ב-set_status.py
@@ -1765,6 +1821,7 @@ function render(board) {
   archive = board.archive || [];
   $("availPanel").classList.toggle("collapsed", !!foldState().__availability__);  // פתוח כברירת מחדל
   $("msgPanel").classList.toggle("collapsed", !!foldState().__message__);
+  $("myAvailPanel").classList.toggle("collapsed", !!foldState().__myavail__);
   buckets = board.buckets?.length ? board.buckets : [...DEFAULT_BUCKETS];
   $("bucketText").value = buckets.join("\n");
   $("msgText").value = board.message || "";
@@ -1772,6 +1829,7 @@ function render(board) {
   $("msgPub").checked = !!board.messagePublish;
   $("unavail").innerHTML = "";
   (board.unavailable || []).forEach(p => addPerson(p, false));
+  renderMyAvail();
   renderBuckets(board.tasks || []);
   renderPreview();
 }
