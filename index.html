@@ -131,11 +131,11 @@
   .row.task.off{background:var(--muted-row)}
   #msgPanel.off textarea{background:var(--muted-row);color:var(--sub)}
   .row.task.off input:not([type=checkbox]),.row.task.off select{color:var(--sub)}
-  .row.person{grid-template-columns:16px 20px 150px 165px minmax(0,1fr) 135px 135px 32px}
+  .row.person{grid-template-columns:16px 20px 150px 165px minmax(0,1fr) 135px 135px 32px 32px}
   .row.person.off{background:var(--muted-row)} .row.person.off :is(input:not([type=checkbox]),select){color:var(--sub)}
   select.av-away{color:var(--red)} select.av-limited{color:var(--orange)} select.av-home,select.av-site{color:var(--green)}
   .row.person input.away-now{border-color:var(--orange)}
-  @media(max-width:680px){.row.person{grid-template-columns:16px 20px 1fr 1fr 32px}.row.person .f-reason{grid-column:3/5}.row.person.head{display:none}}
+  @media(max-width:680px){.row.person{grid-template-columns:16px 20px 1fr 1fr 32px 32px}.row.person .f-reason{grid-column:3/5}.row.person.head{display:none}}
   .row.head{font-size:12px;color:var(--sub);font-weight:500;margin-bottom:2px;padding-top:0;padding-bottom:0}
   @media(max-width:680px){
     .row.task{grid-template-columns:16px 20px minmax(0,1fr) 26px}
@@ -247,6 +247,8 @@
   /* ---------- ארכיון ---------- */
   .t-actions{display:flex;flex-direction:column;align-items:center;gap:2px}
   .t-actions .arch-btn{font-size:13px;padding:3px 5px}
+  .avail-arch-details{margin-top:10px}
+  .avail-arch-details summary{cursor:pointer;color:var(--sub);font-size:13px}
   .arch-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
   .arch-main{flex:1;min-width:0}
   .arch-main .meta{color:var(--sub);font-size:12px}
@@ -530,9 +532,10 @@
       </div>
       <div class="fold-body">
         <p class="empty" style="margin:-4px 0 8px">אתר לקוח, מחלה, חופשה</p>
-        <div class="row person head"><div></div><div></div><div>שם</div><div>זמינות</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div></div>
+        <div class="row person head"><div></div><div></div><div>שם</div><div>זמינות</div><div>סיבה</div><div>מתאריך</div><div>עד תאריך</div><div></div><div></div></div>
         <div id="unavail" class="rows"></div>
         <button class="add" onclick="addPerson()">+ הוסף</button>
+        <div class="avail-arch" id="availArchBox"></div>
       </div>
     </div>
 
@@ -648,7 +651,7 @@ let POLL_MS = 3000;
 const TZ = "Asia/Jerusalem";
 const DEFAULT_BUCKETS = ["שירות באתר הלקוח", "התקנות והדרכות", "תיקונים במעבדה", "טיפולי תחזוקה מונעת PM", "משימות כללי"];
 // לעדכן בכל שינוי בממשק
-const VERSION = "8.0";
+const VERSION = "8.1";
 const UPDATED = "15.11.2026";
 
 // חייב להתאים ל-tasks.py
@@ -953,6 +956,43 @@ function renderArchive() {
         <button type="button" class="ghost" onclick="deleteArch(${i})" title="מחיקה לצמיתות">✕</button>
       </div></div>`).join("")
       : `<div class="empty">${archive.length ? "אין משימות בארכיון שמתאימות לחיפוש." : "הארכיון ריק. משימה מועברת לארכיון בכפתור 🗄️ שבשורת המשימה."}</div>`}`;
+}
+
+// ---------- ארכיון זמינות ----------
+// שורות זמינות שהועברו לארכיון (ידנית ע"י 🗄️, או אוטומטית כש"עד תאריך" עובר - ראו scheduler.js)
+let availArchive = [];
+function archivePerson(r) {
+  const p = rowData(r);
+  availArchive.unshift({ ...p, archivedAt: todayISO() });
+  r.remove();
+  changed(); renderAvailArchive();
+  status("info", `<span class="dirty-dot"></span>הזמינות הועברה לארכיון. לחצו "שמור לוח" כדי לשמור.`);
+}
+function restoreAvailArch(i) {
+  const p = { ...availArchive[i] }; delete p.archivedAt;
+  availArchive.splice(i, 1);
+  addPerson(p, false);
+  changed(); renderAvailArchive();
+  status("info", `<span class="dirty-dot"></span>הזמינות שוחזרה. לחצו "שמור לוח" כדי לשמור.`);
+}
+function deleteAvailArch(i) {
+  const p = availArchive[i];
+  if (!confirm(`למחוק לצמיתות את שורת הזמינות של "${esc(p.name)}" מהארכיון?`)) return;
+  availArchive.splice(i, 1); changed(); renderAvailArchive();
+}
+function renderAvailArchive() {
+  if (!availArchive.length) { $("availArchBox").innerHTML = ""; return; }
+  $("availArchBox").innerHTML = `<details class="avail-arch-details">
+    <summary>📜 ארכיון זמינות <span class="count">${availArchive.length}</span></summary>
+    ${availArchive.map((p, i) => { const [label, ic] = AVAIL[p.type] || ["", ""]; return `<div class="arch-item">
+      <div class="arch-main"><b>${esc(p.name)}</b>
+        <div class="meta">${["הועבר " + isoToDMY(p.archivedAt), `${ic} ${label}`, p.reason ? `📝 ${p.reason}` : "",
+          [p.from ? isoToDMY(p.from) : "", p.to ? isoToDMY(p.to) : ""].filter(Boolean).join(" – ")].filter(Boolean).map(esc).join(" · ")}</div></div>
+      <div class="arch-btns">
+        <button type="button" onclick="restoreAvailArch(${i})" title="החזרה לרשימת הזמינות">↩ שחזר</button>
+        <button type="button" class="ghost" onclick="deleteAvailArch(${i})" title="מחיקה לצמיתות">✕</button>
+      </div></div>`; }).join("")}
+  </details>`;
 }
 
 let fDayVal = null;  // סינון ליום מסוים (נבחר מלוח השנה)
@@ -1279,6 +1319,7 @@ function addPerson(p = {}, focus = true) {
     <input class="f-reason" data-k="reason" value="${esc(p.reason)}" placeholder="חופש / מחלה / כנס / שם לקוח…">
     ${dateField("from", p.from, "מתאריך (ריק = היום)")}
     ${dateField("to", p.to, "עד תאריך (אופציונלי)")}
+    <button class="ghost" title="העברה לארכיון" onclick="archivePerson(this.closest('.row'))">🗄️</button>
     <button class="ghost" title="מחק" onclick="this.parentElement.remove();changed()">✕</button>`;
   $("unavail").append(el);
   if (focus) { el.querySelector("select").focus(); changed(); }
@@ -1298,7 +1339,7 @@ function collect() {
       if (t.title || t.customer || t.note || t.equip || t.serial || t.ticket) tasks.push({ bucket: b.dataset.bucket, ...t });
     }));
   const unavailable = [...$("unavail").children].map(fields).filter(p => p.name);
-  return { buckets, unavailable, tasks, message: $("msgText").value, messagePublish: $("msgPub").checked, archive };
+  return { buckets, unavailable, tasks, message: $("msgText").value, messagePublish: $("msgPub").checked, archive, availArchive };
 }
 function setDirty(v) {
   dirty = v;
@@ -1819,6 +1860,7 @@ function boot() {
 function render(board) {
   fillFilterOptions(); fillMe();
   archive = board.archive || [];
+  availArchive = board.availArchive || [];
   $("availPanel").classList.toggle("collapsed", !!foldState().__availability__);  // פתוח כברירת מחדל
   $("msgPanel").classList.toggle("collapsed", !!foldState().__message__);
   $("myAvailPanel").classList.toggle("collapsed", !!foldState().__myavail__);
@@ -1830,6 +1872,7 @@ function render(board) {
   $("unavail").innerHTML = "";
   (board.unavailable || []).forEach(p => addPerson(p, false));
   renderMyAvail();
+  renderAvailArchive();
   renderBuckets(board.tasks || []);
   renderPreview();
 }
@@ -1903,7 +1946,7 @@ async function saveBoard(message) {
     if (remoteText.trim()) {
       const remote = JSON.parse(remoteText);
       // שינוי בהגדרות, בזמינות או בהודעה (שמירה מחלון אחר) - לא דורסים
-      const meta = x => JSON.stringify([x.buckets, x.unavailable, x.message, x.messagePublish]);
+      const meta = x => JSON.stringify([x.buckets, x.unavailable, x.availArchive, x.message, x.messagePublish]);
       if (meta(remote) !== meta(baseBoard)) { const e = new Error("conflict"); e.status = 409; throw e; }
       merged = mergeRemote(baseBoard, remote, b);
       if (merged.length) render(b);  // מציגים את מה שנכנס מהצוות
@@ -1921,7 +1964,7 @@ function busy(on) { isBusy = on; ["saveBtn", "pubBtn", "schedBtn"].forEach(id =>
 // אם יש - משלבים לתוכם את שינויי הצוות (אותו מיזוג כמו בשמירה), והשינויים שלך נשארים לא שמורים.
 const SYNC_MS = 30 * 1000;
 let isBusy = false;
-const metaOf = x => JSON.stringify([x.buckets, x.unavailable, x.message, x.messagePublish]);
+const metaOf = x => JSON.stringify([x.buckets, x.unavailable, x.availArchive, x.message, x.messagePublish]);
 const typing = () => { const a = document.activeElement;  // לא מפריעים באמצע הקלדה / עריכה
   return !!document.querySelector(".row.task.editing") ||
     !!(a && a.matches?.("input, textarea, select") && a.closest(".bucket, #availPanel, #msgPanel, #settingsPanel")); };

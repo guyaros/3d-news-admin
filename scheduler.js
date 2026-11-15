@@ -37,6 +37,33 @@ async function read(name) {
 const put = (name, text, message, sha) => gh(`/contents/${name}`, { method: "PUT",
   body: JSON.stringify({ message, content: Buffer.from(text, "utf8").toString("base64"), branch: "main", ...(sha ? { sha } : {}) }) });
 const il = d => d.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" });
+const todayIL = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });  // YYYY-MM-DD
+
+// העברה אוטומטית לארכיון של שורות זמינות שתאריך ה"עד" שלהן עבר (ראו גם archivePerson/collect ב-index.html).
+// רץ בכל קריאה ללולאה (כל כ-4 דקות), ולכן גם שגיאה כאן לא אמורה לעכב את בדיקת הפרסום המתוזמן.
+async function sweepAvailArchive() {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const b = await read("board.json");
+    if (!b) return;
+    const board = JSON.parse(b.text);
+    const today = todayIL(), unavail = board.unavailable || [];
+    const expired = unavail.filter(p => p.to && p.to < today);
+    if (!expired.length) return;
+    board.unavailable = unavail.filter(p => !(p.to && p.to < today));
+    const stamp = new Date().toISOString();
+    board.availArchive = [...expired.map(p => ({ ...p, archivedAt: stamp })), ...(board.availArchive || [])];
+    try {
+      await put("board.json", JSON.stringify(board, null, 2) + "\n", `Auto-archive expired availability (${expired.length})`, b.sha);
+      console.log(`הועברו לארכיון ${expired.length} שורות זמינות שפג תוקפן.`);
+      return;
+    } catch (e) {
+      if (![409, 422].includes(e.status)) throw e;
+      console.log(`התנגשות בכתיבת board.json (ניסיון ${attempt + 1}), מנסה שוב`);
+      await new Promise(r => setTimeout(r, 1000 + Math.random() * 2000));
+    }
+  }
+  console.log("::warning::לא הצלחתי להעביר זמינות שפג תוקפה לארכיון אחרי כמה ניסיונות");
+}
 
 async function fail(f, sched, error) {  // נשאר ב-schedule.json כדי שממשק הניהול יציג את הבעיה
   console.log(`::error::${error}`);
@@ -49,6 +76,9 @@ async function main() {
   // 404 על schedule.json נראה אותו דבר גם כשאין למפתח גישה ל-repo, לכן בודקים קודם גישה
   try { await gh(""); }
   catch (e) { console.log(`::error::SCHED_TOKEN לא מצליח לגשת ל-${REPO} (${e.message}). צריך מפתח עם Contents: Read and write על ה-repo הזה.`); process.exit(1); }
+
+  try { await sweepAvailArchive(); } catch (e) { console.log(`::warning::ארכוב אוטומטי של זמינות נכשל: ${e.message}`); }
+
   const f = await read("schedule.json");
   if (!f || !f.text.trim()) return console.log("אין פרסום מתוזמן.");
   const sched = JSON.parse(f.text), at = new Date(sched.at);
